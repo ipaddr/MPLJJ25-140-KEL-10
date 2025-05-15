@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:socio_care/core/navigation/route_names.dart';
 import 'package:socio_care/features/auth/presentation/widgets/register_form_widget.dart';
 
 class RegisterPage extends StatelessWidget {
@@ -13,7 +15,7 @@ class RegisterPage extends StatelessWidget {
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
             // Implement navigation back
-            Navigator.of(context).pop();
+            context.go(RouteNames.login);
           },
         ),
       ),

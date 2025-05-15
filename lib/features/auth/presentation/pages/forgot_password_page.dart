@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:socio_care/core/navigation/route_names.dart';
 
 class ForgotPasswordPage extends StatelessWidget {
   const ForgotPasswordPage({super.key});
@@ -11,7 +13,8 @@ class ForgotPasswordPage extends StatelessWidget {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
-            Navigator.of(context).pop();
+            context.go(RouteNames.login);
+            // Use GoRouter's pop method instead of Navigator
           },
         ),
         elevation: 0, // Remove shadow

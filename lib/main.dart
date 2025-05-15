@@ -1,23 +1,22 @@
 import 'package:flutter/material.dart';
-import 'package:socio_care/features/auth/presentation/pages/splash_page.dart';
+import 'package:socio_care/core/navigation/app_route.dart';
 
 void main() {
-  runApp(MyApp());
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  const MyApp({Key? key}) : super(key: key);
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'SocioCare App',
+    return MaterialApp.router(
+      title: 'SocioCare',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
+        primarySwatch: Colors.blue,
+        visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
-      home: SplashPage(),
+      routerConfig: appRouter,
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
-import 'package:socio_care/features/auth/presentation/pages/onboarding_page.dart';
+import 'package:go_router/go_router.dart';
+import 'package:socio_care/core/navigation/route_names.dart';
 
 class SplashPage extends StatefulWidget {
   const SplashPage({Key? key}) : super(key: key);
@@ -13,11 +14,12 @@ class _SplashPageState extends State<SplashPage> {
   @override
   void initState() {
     super.initState();
-    // Menambahkan timer untuk berpindah ke halaman onboarding setelah 3 detik
+    // Using Timer to navigate to onboarding after 3 seconds
     Timer(const Duration(seconds: 3), () {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => const OnboardingPage()),
-      );
+      // Use GoRouter instead of Navigator
+      if (mounted) {
+        context.go(RouteNames.onboarding);
+      }
     });
   }
 

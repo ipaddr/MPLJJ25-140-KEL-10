@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart'; // Import this for Visibility
+import 'package:go_router/go_router.dart';
+import 'package:socio_care/core/navigation/route_names.dart';
 
 class LoginFormWidget extends StatefulWidget {
   const LoginFormWidget({Key? key}) : super(key: key);
@@ -14,31 +15,30 @@ class _LoginFormWidgetState extends State<LoginFormWidget> {
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment:
-          CrossAxisAlignment.stretch, // Make children take full width
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         TextFormField(
           decoration: InputDecoration(
-            prefixIcon: Icon(Icons.email), // Email icon
+            prefixIcon: Icon(Icons.email),
             hintText: 'Email',
             filled: true,
-            fillColor: Colors.white.withOpacity(0.8), // Light background
+            fillColor: Colors.white.withOpacity(0.8),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(30.0), // Rounded borders
-              borderSide: BorderSide.none, // No visible border line
+              borderRadius: BorderRadius.circular(30.0),
+              borderSide: BorderSide.none,
             ),
             contentPadding: EdgeInsets.symmetric(
               horizontal: 20.0,
               vertical: 15.0,
             ),
-            isDense: true, // Reduces the overall height of the input field
+            isDense: true,
           ),
           keyboardType: TextInputType.emailAddress,
         ),
         SizedBox(height: 16.0),
         TextFormField(
           decoration: InputDecoration(
-            prefixIcon: Icon(Icons.lock), // Lock icon
+            prefixIcon: Icon(Icons.lock),
             suffixIcon: IconButton(
               icon: Icon(
                 _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
@@ -51,32 +51,31 @@ class _LoginFormWidgetState extends State<LoginFormWidget> {
             ),
             hintText: 'Password',
             filled: true,
-            fillColor: Colors.white.withOpacity(0.8), // Light background
+            fillColor: Colors.white.withOpacity(0.8),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(30.0), // Rounded borders
-              borderSide: BorderSide.none, // No visible border line
+              borderRadius: BorderRadius.circular(30.0),
+              borderSide: BorderSide.none,
             ),
             contentPadding: EdgeInsets.symmetric(
               horizontal: 20.0,
               vertical: 15.0,
             ),
-            isDense: true, // Reduces the overall height of the input field
+            isDense: true,
           ),
-          obscureText: !_isPasswordVisible, // Toggle visibility
+          obscureText: !_isPasswordVisible,
         ),
         SizedBox(height: 24.0),
         ElevatedButton(
           onPressed: () {
-            // TODO: Implement login logic
+            // Navigate to dashboard using GoRouter
+            context.go(RouteNames.userDashboard);
           },
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.blue, // Blue background
-            foregroundColor: Colors.white, // White text color
+            backgroundColor: Colors.blue,
+            foregroundColor: Colors.white,
             padding: EdgeInsets.symmetric(vertical: 15.0),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(
-                30.0,
-              ), // Rounded corners for button
+              borderRadius: BorderRadius.circular(30.0),
             ),
           ),
           child: Text('Masuk'),

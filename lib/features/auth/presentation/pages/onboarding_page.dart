@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:socio_care/features/auth/presentation/pages/login_page.dart';
+import 'package:go_router/go_router.dart';
+import 'package:socio_care/core/navigation/route_names.dart';
 
 class OnboardingPage extends StatefulWidget {
   const OnboardingPage({super.key});
@@ -19,18 +20,18 @@ class _OnboardingPageState extends State<OnboardingPage> {
         curve: Curves.easeIn,
       );
     } else {
-      // Navigate to login page
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => const LoginPage()),
-      );
+      // Navigate to login page using GoRouter
+      if (mounted) {
+        context.go(RouteNames.login);
+      }
     }
   }
 
   void _skipPages() {
-    // Navigate to login page
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (context) => const LoginPage()),
-    );
+    // Navigate to login page using GoRouter
+    if (mounted) {
+      context.go(RouteNames.login);
+    }
   }
 
   @override
