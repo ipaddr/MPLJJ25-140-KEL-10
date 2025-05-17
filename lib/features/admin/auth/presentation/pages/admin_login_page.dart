@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:socio_care/core/navigation/route_names.dart';
-import '../widgets/login_form_widget.dart';
+import '../widgets/admin_login_form_widget.dart';
 
-class LoginPage extends StatelessWidget {
-  const LoginPage({Key? key}) : super(key: key);
+class AdminLoginPage extends StatelessWidget {
+  const AdminLoginPage({Key? key}) : super(key: key);
   // Placeholder asset path for the logo
   final String logoAssetPath = 'assets/images/socio_care_logo1.png';
 
@@ -29,46 +29,70 @@ class LoginPage extends StatelessWidget {
                   children: [
                     // Logo
                     Image.asset(logoAssetPath, width: 120, height: 120),
-                    SizedBox(height: 32.0),
+                    const SizedBox(height: 32.0),
                     // Title
-                    Text(
-                      'Selamat Datang',
+                    const Text(
+                      'Selamat Datang Admin',
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    SizedBox(height: 8.0),
-                    Text(
-                      'Silahkan login untuk melanjutkan',
+                    const SizedBox(height: 8.0),
+                    const Text(
+                      'Silahkan login sebagai admin untuk melanjutkan',
                       style: TextStyle(fontSize: 14, color: Colors.black54),
                     ),
-                    SizedBox(height: 32.0),
+                    const SizedBox(height: 32.0),
                     // Login Form
-                    const LoginFormWidget(),
-                    SizedBox(height: 16.0),
+                    const AdminLoginFormWidget(),
+                    const SizedBox(height: 16.0),
                     // Forgot Password Link
                     TextButton(
                       onPressed: () {
-                        context.go(RouteNames.forgotPassword);
+                        context.go(RouteNames.adminForgotPassword);
                       },
                       child: Text(
                         'Lupa Kata Sandi?',
                         style: TextStyle(color: Colors.blue.shade800),
                       ),
                     ),
-                    SizedBox(height: 24.0),
-                    // Register Link
+                    const SizedBox(height: 24.0),
+                    // Option to login as User
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text('Tidak Punya Akun? '),
+                        const Text('Masuk sebagai Pengguna? '),
                         TextButton(
                           onPressed: () {
-                            context.go(RouteNames.register);
+                            context.go(
+                              RouteNames.login,
+                            ); // Navigate to User Login
                           },
                           child: Text(
-                            'Registrasi',
+                            'Klik Disini',
+                            style: TextStyle(
+                              color: Colors.blue.shade800,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16.0),
+                    // Register Link (for admin registration, though often admins are created differently)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text('Belum punya akun admin? '),
+                        TextButton(
+                          onPressed: () {
+                            context.go(
+                              RouteNames.adminRegister,
+                            ); // Navigate to Admin Register
+                          },
+                          child: Text(
+                            'Registrasi Admin',
                             style: TextStyle(
                               color: Colors.blue.shade800,
                               fontWeight: FontWeight.bold,

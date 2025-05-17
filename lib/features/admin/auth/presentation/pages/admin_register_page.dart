@@ -1,21 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:socio_care/core/navigation/route_names.dart';
-import 'package:socio_care/features/auth/presentation/widgets/register_form_widget.dart';
+import '../widgets/admin_register_form_widget.dart';
 
-class RegisterPage extends StatelessWidget {
-  const RegisterPage({super.key});
+class AdminRegisterPage extends StatelessWidget {
+  const AdminRegisterPage({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('REGISTRASI'),
+        title: const Text('REGISTRASI ADMIN'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
-            // Implement navigation back
-            context.go(RouteNames.login);
+            // Navigate back to Admin Login
+            context.go(RouteNames.adminLogin);
           },
         ),
       ),
@@ -32,7 +32,7 @@ class RegisterPage extends StatelessWidget {
         ),
         child: const SingleChildScrollView(
           padding: EdgeInsets.all(16.0),
-          child: RegisterFormWidget(),
+          child: AdminRegisterFormWidget(),
         ),
       ),
     );
