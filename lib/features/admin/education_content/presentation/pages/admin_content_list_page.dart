@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:socio_care/core/navigation/route_names.dart'; // Adjust if needed
+import 'package:socio_care/features/admin/core_admin/presentation/widgets/admin_navigation_drawer.dart';
 import '../widgets/admin_content_card_widget.dart';
-import 'package:intl/intl.dart'; // For date formatting
+// For date formatting
 
 class AdminContentListPage extends StatefulWidget {
   const AdminContentListPage({super.key});
@@ -116,14 +117,11 @@ class _AdminContentListPageState extends State<AdminContentListPage> {
         title: const Text('Manajemen Konten Edukasi'),
         backgroundColor: Colors.blue.shade700,
         foregroundColor: Colors.white,
-        leading: IconButton(
-          // Back button to Admin Dashboard
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            context.go(RouteNames.adminDashboard); // Navigate back to dashboard
-          },
-        ),
       ),
+
+      drawer:
+          const AdminNavigationDrawer(), // Your Admin Navigation Drawer widget
+
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(

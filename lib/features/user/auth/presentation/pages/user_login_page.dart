@@ -4,7 +4,7 @@ import 'package:socio_care/core/navigation/route_names.dart';
 import '../widgets/user_login_form_widget.dart';
 
 class LoginPage extends StatelessWidget {
-  const LoginPage({Key? key}) : super(key: key);
+  const LoginPage({super.key});
   // Placeholder asset path for the logo
   final String logoAssetPath = 'assets/images/socio_care_logo1.png';
 
@@ -12,6 +12,8 @@ class LoginPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
+        width: double.infinity,
+        height: double.infinity,
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -29,24 +31,24 @@ class LoginPage extends StatelessWidget {
                   children: [
                     // Logo
                     Image.asset(logoAssetPath, width: 120, height: 120),
-                    SizedBox(height: 32.0),
+                    const SizedBox(height: 32.0),
                     // Title
-                    Text(
+                    const Text(
                       'Selamat Datang',
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    SizedBox(height: 8.0),
-                    Text(
+                    const SizedBox(height: 8.0),
+                    const Text(
                       'Silahkan login untuk melanjutkan',
                       style: TextStyle(fontSize: 14, color: Colors.black54),
                     ),
-                    SizedBox(height: 32.0),
+                    const SizedBox(height: 32.0),
                     // Login Form
                     const LoginFormWidget(),
-                    SizedBox(height: 16.0),
+                    const SizedBox(height: 16.0),
                     // Forgot Password Link
                     TextButton(
                       onPressed: () {
@@ -57,12 +59,12 @@ class LoginPage extends StatelessWidget {
                         style: TextStyle(color: Colors.blue.shade800),
                       ),
                     ),
-                    SizedBox(height: 24.0),
+                    const SizedBox(height: 24.0),
                     // Register Link
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text('Tidak Punya Akun? '),
+                        const Text('Tidak Punya Akun? '),
                         TextButton(
                           onPressed: () {
                             context.go(RouteNames.register);
@@ -77,12 +79,11 @@ class LoginPage extends StatelessWidget {
                         ),
                       ],
                     ),
-                    SizedBox(height: 16.0),
                     // Admin Login Link
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text('Masuk sebagai Admin? '),
+                        const Text('Masuk sebagai Admin? '),
                         TextButton(
                           onPressed: () {
                             context.go(RouteNames.adminLogin);
@@ -97,6 +98,7 @@ class LoginPage extends StatelessWidget {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 16.0),
                   ],
                 ),
               ),

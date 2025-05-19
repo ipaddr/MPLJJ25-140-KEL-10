@@ -7,11 +7,11 @@ class AdminContentCardWidget extends StatelessWidget {
   final VoidCallback onDelete;
 
   const AdminContentCardWidget({
-    Key? key,
+    super.key,
     required this.content,
     required this.onEdit,
     required this.onDelete,
-  }) : super(key: key);
+  });
 
   Color _getStatusColor(String status) {
     switch (status) {

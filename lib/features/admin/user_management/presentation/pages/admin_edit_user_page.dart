@@ -2,25 +2,39 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:socio_care/core/navigation/route_names.dart';
 
-class AdminEditUserPage extends StatelessWidget {
+class AdminEditUserPage extends StatefulWidget {
   final String userId; // To receive the user ID from navigation
 
   const AdminEditUserPage({super.key, required this.userId});
 
   @override
-  Widget build(BuildContext context) {
+  State<AdminEditUserPage> createState() => _AdminEditUserPageState();
+}
+
+class _AdminEditUserPageState extends State<AdminEditUserPage> {
+  late String selectedStatus;
+  late Map<String, dynamic> userData;
+
+  @override
+  void initState() {
+    super.initState();
     // TODO: Fetch user data based on userId
     // Placeholder for fetching user data
-    final Map<String, dynamic> userData = {
-      'id': userId,
-      'nama_lengkap': 'Nama Pengguna ${userId}', // Placeholder data
-      'email': 'email.${userId}@example.com',
-      'lokasi': 'Lokasi ${userId}',
-      'penghasilan': 'Penghasilan ${userId}',
-      'status': 'Status ${userId}',
-      // Add other user fields
+    userData = {
+      'id': widget.userId,
+      'nama_lengkap': 'Nama Pengguna ${widget.userId}', // Placeholder data
+      'email': 'email.${widget.userId}@example.com',
+      'lokasi': 'Lokasi ${widget.userId}',
+      'penghasilan': 'Penghasilan ${widget.userId}',
+      // Use a valid default status instead of 'Status user_001'
     };
 
+    // Initialize with a valid status
+    selectedStatus = 'Terverifikasi';
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text('Edit Pengguna: ${userData['nama_lengkap']}'),
@@ -86,7 +100,7 @@ class AdminEditUserPage extends StatelessWidget {
                 const SizedBox(height: 16.0),
                 DropdownButtonFormField<String>(
                   value:
-                      userData['status'], // This will need to be managed with state
+                      selectedStatus, // Use state variable instead of userData
                   decoration: const InputDecoration(labelText: 'Status Akun'),
                   items:
                       ['Terverifikasi', 'Menunggu Verifikasi', 'Diblokir'].map((
@@ -98,7 +112,11 @@ class AdminEditUserPage extends StatelessWidget {
                         );
                       }).toList(),
                   onChanged: (newValue) {
-                    // TODO: Update status (will need state management)
+                    if (newValue != null) {
+                      setState(() {
+                        selectedStatus = newValue;
+                      });
+                    }
                   },
                 ),
                 const SizedBox(height: 24.0),
@@ -106,6 +124,7 @@ class AdminEditUserPage extends StatelessWidget {
                   onPressed: () {
                     // TODO: Implement save changes logic
                     print('Saving changes for user: ${userData['id']}');
+                    print('New status: $selectedStatus');
                     // After saving, navigate back to the user list
                     // context.go(RouteNames.adminUserList);
                   },

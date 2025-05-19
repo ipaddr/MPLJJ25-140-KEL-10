@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
+import 'package:socio_care/core/navigation/route_names.dart';
 import 'package:socio_care/features/user/programs/presentation/widgets/program_list_item_widget.dart';
 
 class ProgramExplorerPage extends StatelessWidget {
@@ -20,43 +20,106 @@ class ProgramExplorerPage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Eksplorasi Program'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            context.go(RouteNames.userDashboard);
+          },
+        ),
+        title: const Text(
+          "Eksplorasi Program",
+          style: TextStyle(color: Colors.white),
+        ),
+        backgroundColor: Colors.blue,
+        centerTitle: true,
         actions: [
           IconButton(
             icon: const Icon(Icons.filter_list),
             onPressed: () {
-              // TODO: Implement filter functionality
-              // showDialog(
-              //   context: context,
-              //   builder: (context) => ProgramFilterDialogWidget(),
-              // );
+              showDialog(
+                context: context,
+                builder:
+                    (context) => AlertDialog(
+                      title: const Text('Filter Program'),
+                      content: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text('Pilih kategori program:'),
+                          const SizedBox(height: 16),
+                          Wrap(
+                            spacing: 8,
+                            children: [
+                              FilterChip(
+                                label: const Text('Kesehatan'),
+                                onSelected: (selected) {
+                                  // Filter logic would go here
+                                  Navigator.pop(context);
+                                },
+                              ),
+                              FilterChip(
+                                label: const Text('Pendidikan'),
+                                onSelected: (selected) {
+                                  // Filter logic would go here
+                                  Navigator.pop(context);
+                                },
+                              ),
+                              FilterChip(
+                                label: const Text('Modal Usaha'),
+                                onSelected: (selected) {
+                                  // Filter logic would go here
+                                  Navigator.pop(context);
+                                },
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Batal'),
+                        ),
+                      ],
+                    ),
+              );
             },
           ),
         ],
       ),
-      body: ListView.builder(
-        itemCount: dummyPrograms.length,
-        itemBuilder: (context, index) {
-          final program = dummyPrograms[index];
-          return ProgramListItemWidget(
-            programName: program['name'],
-            programCategory: program['category'],
-            // Add other required program details
-            onTap: () {
-              // Generate a programId for demonstration purposes
-              final String programId = 'program-${index + 1}';
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.blue.shade100, Colors.blue.shade200],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: ListView.builder(
+          itemCount: dummyPrograms.length,
+          itemBuilder: (context, index) {
+            final program = dummyPrograms[index];
+            return ProgramListItemWidget(
+              programName: program['name'],
+              programCategory: program['category'],
+              // Add other required program details
+              onTap: () {
+                // Generate a programId for demonstration purposes
+                final String programId = 'program-${index + 1}';
 
-              // Navigate to program detail using GoRouter
-              context.push(
-                '/user/programs/$programId',
-                extra: {
-                  'isRecommended':
-                      false, // Coming from explorer, not recommendations
-                },
-              );
-            },
-          );
-        },
+                // Navigate to program detail using GoRouter
+                context.push(
+                  '/user/programs/$programId',
+                  extra: {
+                    'isRecommended':
+                        false, // Coming from explorer, not recommendations
+                  },
+                );
+              },
+            );
+          },
+        ),
       ),
     );
   }

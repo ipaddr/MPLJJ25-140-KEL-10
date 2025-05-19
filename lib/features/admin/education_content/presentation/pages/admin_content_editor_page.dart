@@ -76,7 +76,7 @@ class _AdminContentEditorPageState extends State<AdminContentEditorPage> {
       print('Saving content...');
       print('Title: ${_titleController.text}');
       print('Content: ${_contentController.text}');
-      print('Status: ${_selectedStatus}');
+      print('Status: $_selectedStatus');
 
       // TODO: Handle image upload (_selectedImage)
       if (_selectedImage != null) {

@@ -13,31 +13,30 @@ class ForgotPasswordPage extends StatelessWidget {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
+            // Navigate back to Login
             context.go(RouteNames.login);
-            // Use GoRouter's pop method instead of Navigator
           },
         ),
         elevation: 0, // Remove shadow
       ),
       body: Container(
-        decoration: const BoxDecoration(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [
-              Color(0xFF64B5F6), // Light blue
-              Color(0xFF2196F3), // Blue
-            ],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
+            colors: [Colors.blue.shade100, Colors.blue.shade200],
           ),
         ),
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               TextFormField(
                 decoration: InputDecoration(
-                  hintText: 'Nomor Telepon',
+                  hintText: 'Nomor Telepon atau Email',
                   filled: true,
                   fillColor: Colors.white,
                   border: OutlineInputBorder(
@@ -45,27 +44,41 @@ class ForgotPasswordPage extends StatelessWidget {
                     borderSide: BorderSide.none,
                   ),
                 ),
-                keyboardType: TextInputType.phone,
-              ),
-              const SizedBox(height: 16.0),
-              TextFormField(
-                decoration: InputDecoration(
-                  hintText: 'Email',
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8.0),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-                keyboardType: TextInputType.emailAddress,
+                keyboardType: TextInputType.text, // Can be email or phone
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Nomor Telepon atau Email tidak boleh kosong';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 24.0),
-              ElevatedButton(
-                onPressed: () {
-                  // TODO: Implement password reset logic
-                },
-                child: const Text('Reset Kata Sandi'), // Button text
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    context.go(RouteNames.userOtp);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0066CC),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 12.0,
+                      horizontal: 20.0,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10.0),
+                    ),
+                  ),
+                  child: const Text(
+                    'Reset Kata Sandi',
+                    style: TextStyle(
+                      fontFamily: 'Poppins',
+                      fontSize: 16.0,
+                      fontWeight: FontWeight.normal,
+                    ),
+                  ),
+                ),
               ),
             ],
           ),

@@ -6,11 +6,11 @@ class AdminUserCardWidget extends StatelessWidget {
   final VoidCallback onDelete;
 
   const AdminUserCardWidget({
-    Key? key,
+    super.key,
     required this.user,
     required this.onEdit,
     required this.onDelete,
-  }) : super(key: key);
+  });
 
   Color _getStatusColor(String status) {
     switch (status) {

@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:socio_care/core/navigation/route_names.dart';
 
 class AdminLoginFormWidget extends StatefulWidget {
-  const AdminLoginFormWidget({Key? key}) : super(key: key);
+  const AdminLoginFormWidget({super.key});
 
   @override
   _AdminLoginFormWidgetState createState() => _AdminLoginFormWidgetState();
@@ -107,11 +107,19 @@ class _AdminLoginFormWidgetState extends State<AdminLoginFormWidget> {
           ElevatedButton(
             onPressed: _login,
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue,
+              backgroundColor: const Color(0xFF0066CC),
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 15.0),
+              padding: const EdgeInsets.symmetric(
+                vertical: 15.0,
+                horizontal: 20.0,
+              ),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(30.0),
+                borderRadius: BorderRadius.circular(10.0),
+              ),
+              textStyle: const TextStyle(
+                fontFamily: 'Poppins',
+                fontSize: 16.0,
+                fontWeight: FontWeight.normal,
               ),
             ),
             child: const Text('Masuk Admin'),

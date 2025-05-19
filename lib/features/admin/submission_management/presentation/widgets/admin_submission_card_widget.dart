@@ -8,12 +8,12 @@ class AdminSubmissionCardWidget extends StatelessWidget {
   final VoidCallback onReject;
 
   const AdminSubmissionCardWidget({
-    Key? key,
+    super.key,
     required this.submission,
     required this.onViewDetail,
     required this.onApprove,
     required this.onReject,
-  }) : super(key: key);
+  });
 
   Color _getStatusColor(String status) {
     switch (status) {

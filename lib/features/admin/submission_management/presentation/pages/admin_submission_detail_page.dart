@@ -29,8 +29,8 @@ class AdminSubmissionDetailPage extends StatelessWidget {
     // Placeholder fetching logic (replace with actual data fetching from backend)
     final Map<String, dynamic> submissionData = {
       'id': submissionId,
-      'user_name': 'Nama Pengguna ${submissionId}',
-      'program_name': 'Nama Program ${submissionId}',
+      'user_name': 'Nama Pengguna $submissionId',
+      'program_name': 'Nama Program $submissionId',
       'status': 'Baru', // Example status
       'submission_date': DateTime.now().subtract(
         Duration(days: int.parse(submissionId.split('_').last)),
@@ -51,7 +51,7 @@ class AdminSubmissionDetailPage extends StatelessWidget {
         {'nama': 'Slip Gaji', 'terpenuhi': false},
         {'nama': 'Surat Keterangan Tidak Mampu', 'terpenuhi': true},
       ],
-      'catatan_admin': 'Catatan untuk pengajuan ${submissionId}',
+      'catatan_admin': 'Catatan untuk pengajuan $submissionId',
       // Add other relevant submission details
     };
 
@@ -182,8 +182,7 @@ class AdminSubmissionDetailPage extends StatelessWidget {
                           Text(req['nama'] ?? 'N/A'),
                         ],
                       );
-                    })
-                    .toList(),
+                    }),
                 const Divider(height: 32.0),
 
                 // Admin Notes

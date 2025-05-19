@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:socio_care/core/navigation/route_names.dart';
+import 'package:socio_care/features/admin/core_admin/presentation/widgets/admin_navigation_drawer.dart';
 
 class AdminProfilePage extends StatelessWidget {
   const AdminProfilePage({super.key});
@@ -13,6 +14,8 @@ class AdminProfilePage extends StatelessWidget {
         backgroundColor: Colors.blue.shade700,
         foregroundColor: Colors.white,
       ),
+      drawer:
+          const AdminNavigationDrawer(), // Your Admin Navigation Drawer widget
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -71,7 +74,7 @@ class AdminProfilePage extends StatelessWidget {
             ),
             const SizedBox(height: 24.0),
 
-            // Action Buttons
+            // Edit Data Button
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -79,13 +82,27 @@ class AdminProfilePage extends StatelessWidget {
                   context.push(RouteNames.adminEditProfile);
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
+                  backgroundColor: const Color(0xFF0066CC),
                   foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 15.0,
+                    horizontal: 20.0,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10.0),
+                  ),
+                  textStyle: const TextStyle(
+                    fontFamily: 'Poppins',
+                    fontSize: 16.0,
+                    fontWeight: FontWeight.normal,
+                  ),
                 ),
                 child: const Text("Ubah Data"),
               ),
             ),
             const SizedBox(height: 8.0),
+
+            // Logout Button
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(
@@ -95,7 +112,22 @@ class AdminProfilePage extends StatelessWidget {
                 },
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.red,
-                  side: const BorderSide(color: Colors.red),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 15.0,
+                    horizontal: 20.0,
+                  ),
+                  side: const BorderSide(
+                    color: Color.fromARGB(255, 255, 0, 0),
+                    width: 2,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10.0),
+                  ),
+                  textStyle: const TextStyle(
+                    fontFamily: 'Poppins',
+                    fontSize: 16.0,
+                    fontWeight: FontWeight.normal,
+                  ),
                 ),
                 child: const Text("Logout"),
               ),

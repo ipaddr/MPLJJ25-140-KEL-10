@@ -43,57 +43,100 @@ class _OnboardingPageState extends State<OnboardingPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        children: [
-          PageView(
-            controller: _pageController,
-            onPageChanged: (index) {
-              setState(() {
-                _currentPage = index;
-              });
-            },
-            children: const [
-              // Replace with your actual onboarding screen widgets
-              OnboardingScreen(
-                imageAsset:
-                    'assets/images/onboarding1.png', // Replace with your asset path
-                text:
-                    "Dapatkan akses ke berbagai program bantuan sosial dan usaha mikro.",
-              ),
-              OnboardingScreen(
-                imageAsset:
-                    'assets/images/onboarding2.png', // Replace with your asset path
-                text: "Konsultasikan kebutuhanmu dengan chatbot pintar kami.",
-              ),
-              OnboardingScreen(
-                imageAsset:
-                    'assets/images/onboarding3.png', // Replace with your asset path
-                text:
-                    "Bersama SocioCare, capai kesejahteraan yang kamu impikan.",
-              ),
-            ],
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.blue.shade100, Colors.blue.shade200],
           ),
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 40.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  if (_currentPage < 2)
-                    TextButton(
-                      onPressed: _skipPages,
-                      child: const Text("Lewati"),
+        ),
+        width: double.infinity,
+        height: double.infinity,
+        child: Stack(
+          children: [
+            PageView(
+              controller: _pageController,
+              onPageChanged: (index) {
+                setState(() {
+                  _currentPage = index;
+                });
+              },
+              children: const [
+                // Replace with your actual onboarding screen widgets
+                OnboardingScreen(
+                  imageAsset:
+                      'assets/images/onboarding1.png', // Replace with your asset path
+                  text:
+                      "Dapatkan akses ke berbagai program bantuan sosial dan usaha mikro.",
+                ),
+                OnboardingScreen(
+                  imageAsset:
+                      'assets/images/onboarding2.png', // Replace with your asset path
+                  text: "Konsultasikan kebutuhanmu dengan chatbot pintar kami.",
+                ),
+                OnboardingScreen(
+                  imageAsset:
+                      'assets/images/onboarding3.png', // Replace with your asset path
+                  text:
+                      "Bersama SocioCare, capai kesejahteraan yang kamu impikan.",
+                ),
+              ],
+            ),
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 40.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    if (_currentPage < 2)
+                      ElevatedButton(
+                        onPressed: _skipPages,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0066CC),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 12,
+                          ),
+                        ),
+                        child: const Text(
+                          "Lewati",
+                          style: TextStyle(
+                            fontFamily: 'Poppins',
+                            fontWeight: FontWeight.normal,
+                          ),
+                        ),
+                      ),
+                    ElevatedButton(
+                      onPressed: _nextPage,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0066CC),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 12,
+                        ),
+                      ),
+                      child: Text(
+                        _currentPage == 2 ? "Mulai" : "Selanjutnya",
+                        style: const TextStyle(
+                          fontFamily: 'Poppins',
+                          fontWeight: FontWeight.normal,
+                        ),
+                      ),
                     ),
-                  ElevatedButton(
-                    onPressed: _nextPage,
-                    child: Text(_currentPage == 2 ? "Mulai" : "Selanjutnya"),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -10,7 +10,7 @@ class AdminRegisterPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('REGISTRASI ADMIN'),
+        title: const Text('Regitrasi Admin'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
@@ -20,12 +20,11 @@ class AdminRegisterPage extends StatelessWidget {
         ),
       ),
       body: Container(
-        decoration: const BoxDecoration(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [
-              Color(0xFFE3F2FD),
-              Color(0xFFBBDEFB),
-            ], // Light blue gradient
+            colors: [Colors.blue.shade100, Colors.blue.shade200],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),

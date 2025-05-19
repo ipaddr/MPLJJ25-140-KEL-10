@@ -4,7 +4,7 @@ import 'package:socio_care/core/navigation/route_names.dart';
 import '../widgets/admin_login_form_widget.dart';
 
 class AdminLoginPage extends StatelessWidget {
-  const AdminLoginPage({Key? key}) : super(key: key);
+  const AdminLoginPage({super.key});
   // Placeholder asset path for the logo
   final String logoAssetPath = 'assets/images/socio_care_logo1.png';
 
@@ -58,6 +58,27 @@ class AdminLoginPage extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 24.0),
+                    // Register Link (for admin registration, though often admins are created differently)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text('Belum punya akun admin? '),
+                        TextButton(
+                          onPressed: () {
+                            context.go(
+                              RouteNames.adminRegister,
+                            ); // Navigate to Admin Register
+                          },
+                          child: Text(
+                            'Registrasi Admin',
+                            style: TextStyle(
+                              color: Colors.blue.shade800,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                     // Option to login as User
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -80,27 +101,6 @@ class AdminLoginPage extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 16.0),
-                    // Register Link (for admin registration, though often admins are created differently)
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Text('Belum punya akun admin? '),
-                        TextButton(
-                          onPressed: () {
-                            context.go(
-                              RouteNames.adminRegister,
-                            ); // Navigate to Admin Register
-                          },
-                          child: Text(
-                            'Registrasi Admin',
-                            style: TextStyle(
-                              color: Colors.blue.shade800,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
                   ],
                 ),
               ),

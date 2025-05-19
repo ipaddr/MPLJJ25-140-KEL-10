@@ -5,11 +5,11 @@ class EducationDetailViewWidget extends StatelessWidget {
   final String content;
 
   const EducationDetailViewWidget({
-    Key? key,
+    super.key,
     required this.title,
     required this.content,
     required String articleId,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

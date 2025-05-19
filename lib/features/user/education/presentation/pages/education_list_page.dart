@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:socio_care/features/user/core_user/presentation/widgets/user_bottom_navigation_bar.dart';
 
 class EducationListPage extends StatelessWidget {
-  const EducationListPage({Key? key}) : super(key: key);
+  const EducationListPage({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -35,40 +35,54 @@ class EducationListPage extends StatelessWidget {
         backgroundColor: Colors.blue,
         centerTitle: true,
       ),
-      body: ListView.builder(
-        itemCount: educationItems.length, // Use the actual item count
-        itemBuilder: (context, index) {
-          final item = educationItems[index];
-          return Card(
-            margin: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-            elevation: 2.0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8.0),
-            ),
-            child: ListTile(
-              leading: Image.asset(item['image']!, width: 50, height: 50),
-              title: Text(item['title']!),
-              subtitle: Text(item['subtitle']!),
-              onTap: () {
-                // Replace this TODO and print statement
-                final String articleId =
-                    'article-${index + 1}'; // Generate unique ID
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.blue.shade100, Colors.blue.shade200],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: ListView.builder(
+          padding: const EdgeInsets.all(20.0),
+          itemCount: educationItems.length, // Use the actual item count
+          itemBuilder: (context, index) {
+            final item = educationItems[index];
+            return Card(
+              margin: const EdgeInsets.symmetric(
+                horizontal: 8.0,
+                vertical: 4.0,
+              ),
+              elevation: 2.0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8.0),
+              ),
+              child: ListTile(
+                leading: Image.asset(item['image']!, width: 50, height: 50),
+                title: Text(item['title']!),
+                subtitle: Text(item['subtitle']!),
+                onTap: () {
+                  final String articleId =
+                      'article-${index + 1}'; // Generate unique ID
 
-                // You can create more detailed content here
-                final String detailedContent = '''
-                ${item['subtitle']}
-  
-                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
-                ''';
+                  // You can create more detailed content here
+                  final String detailedContent = '''
+                  ${item['subtitle']}
+    
+                  Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+                  ''';
 
-                context.push(
-                  '/user/education/$articleId',
-                  extra: {'title': item['title'], 'content': detailedContent},
-                );
-              },
-            ),
-          );
-        },
+                  context.push(
+                    '/user/education/$articleId',
+                    extra: {'title': item['title'], 'content': detailedContent},
+                  );
+                },
+              ),
+            );
+          },
+        ),
       ),
       bottomNavigationBar: const UserBottomNavigationBar(
         selectedIndex: 2, // Education is the third item

@@ -4,13 +4,13 @@ import 'package:go_router/go_router.dart';
 import 'package:socio_care/core/navigation/route_names.dart';
 
 class SplashPage extends StatefulWidget {
-  const SplashPage({Key? key}) : super(key: key);
+  const SplashPage({super.key});
 
   @override
-  _SplashPageState createState() => _SplashPageState();
+  State<SplashPage> createState() => SplashPageState();
 }
 
-class _SplashPageState extends State<SplashPage> {
+class SplashPageState extends State<SplashPage> {
   @override
   void initState() {
     super.initState();
@@ -26,23 +26,32 @@ class _SplashPageState extends State<SplashPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Placeholder for logo
-            Image.asset(
-              'assets/images/socio_care_logo.png', // Replace with your logo asset path
-              width: 150,
-              height: 150,
-            ),
-            const SizedBox(height: 16),
-            // Placeholder for tagline
-            Text(
-              'Akses Mudah, Hidup Sejahtera', // Replace with your tagline
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-          ],
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.blue.shade100, Colors.blue.shade200],
+          ),
+        ),
+        width: double.infinity,
+        height: double.infinity,
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Placeholder for logo
+              Image.asset(
+                'assets/images/socio_care_logo.png', // Replace with your logo asset path
+                width: 150,
+                height: 150,
+              ),
+              const SizedBox(height: 16),
+              // Placeholder for tagline
+              Text(
+                'Akses Mudah, Hidup Sejahtera', // Replace with your tagline
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ],
+          ),
         ),
       ),
     );

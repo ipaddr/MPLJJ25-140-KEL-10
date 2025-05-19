@@ -7,12 +7,12 @@ class AdminProgramCardWidget extends StatelessWidget {
   final VoidCallback onDelete;
 
   const AdminProgramCardWidget({
-    Key? key,
+    super.key,
     required this.program,
     required this.onViewDetail,
     required this.onEdit,
     required this.onDelete,
-  }) : super(key: key);
+  });
 
   Color _getStatusColor(String status) {
     switch (status) {

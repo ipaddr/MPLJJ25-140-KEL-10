@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart'; // Assuming go_router
 import 'package:socio_care/core/navigation/route_names.dart'; // Adjust if needed
+import 'package:socio_care/features/admin/core_admin/presentation/widgets/admin_navigation_drawer.dart';
 import '../widgets/admin_user_card_widget.dart';
 
 class AdminUserListPage extends StatefulWidget {
@@ -133,14 +134,9 @@ class _AdminUserListPageState extends State<AdminUserListPage> {
         title: const Text('Manajemen Pengguna'),
         backgroundColor: Colors.blue.shade700, // Consistent color
         foregroundColor: Colors.white,
-        leading: IconButton(
-          // Back button to Admin Dashboard
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            context.go(RouteNames.adminDashboard); // Navigate back to dashboard
-          },
-        ),
       ),
+      drawer:
+          const AdminNavigationDrawer(), // Your Admin Navigation Drawer widget
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(

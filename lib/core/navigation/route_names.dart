@@ -7,6 +7,8 @@ class RouteNames {
   static const String login = '/user/login';
   static const String register = '/user/register';
   static const String forgotPassword = '/user/forgot-password';
+  static const String userOtp = '/user/otp-verification'; // Added route
+  static const String userNewPassword = '/user/new-password'; // Added route
   static const String userDashboard = '/user/dashboard';
   static const String userChatbot = '/user/chatbot';
   static const String userEducation = '/user/education';
@@ -24,6 +26,8 @@ class RouteNames {
   static const String adminDashboard = '/admin/dashboard';
   static const String adminForgotPassword = '/admin/forgot-password';
   static const String adminRegister = '/admin/register';
+  static const String adminOtp = '/admin/otp-verification';
+  static const String adminNewPassword = '/admin/new-password';
 
   // Admin User Management routes
   static const String adminUserList = '/admin/users';

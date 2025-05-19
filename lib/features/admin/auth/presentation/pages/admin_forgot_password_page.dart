@@ -20,12 +20,9 @@ class AdminForgotPasswordPage extends StatelessWidget {
         elevation: 0, // Remove shadow
       ),
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [
-              Color(0xFF64B5F6), // Light blue
-              Color(0xFF2196F3), // Blue
-            ],
+            colors: [Colors.blue.shade100, Colors.blue.shade200],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
@@ -35,11 +32,6 @@ class AdminForgotPasswordPage extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text(
-                'Masukkan Email atau Nomor Telepon yang terdaftar untuk mereset kata sandi admin Anda.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16.0, color: Colors.white70),
-              ),
               const SizedBox(height: 24.0),
               TextFormField(
                 decoration: InputDecoration(
@@ -62,9 +54,25 @@ class AdminForgotPasswordPage extends StatelessWidget {
               const SizedBox(height: 24.0),
               ElevatedButton(
                 onPressed: () {
-                  // TODO: Implement admin password reset logic
+                  context.go(RouteNames.adminOtp);
                 },
-                child: const Text('Reset Kata Sandi Admin'), // Button text
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0066CC),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 15.0,
+                    horizontal: 20.0,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10.0),
+                  ),
+                  textStyle: const TextStyle(
+                    fontFamily: 'Poppins',
+                    fontSize: 16.0,
+                    fontWeight: FontWeight.normal,
+                  ),
+                ),
+                child: const Text('Reset Kata Sandi Admin'),
               ),
             ],
           ),

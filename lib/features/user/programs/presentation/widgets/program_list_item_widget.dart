@@ -6,11 +6,11 @@ class ProgramListItemWidget extends StatelessWidget {
   final VoidCallback onTap;
 
   const ProgramListItemWidget({
-    Key? key,
+    super.key,
     required this.programName,
     required this.programCategory,
     required this.onTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import 'package:socio_care/core/navigation/route_names.dart';
 
 class AdminRegisterFormWidget extends StatefulWidget {
   const AdminRegisterFormWidget({super.key});
@@ -223,18 +221,24 @@ class _AdminRegisterFormWidgetState extends State<AdminRegisterFormWidget> {
           ElevatedButton(
             onPressed: _register,
             style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16.0),
-              backgroundColor: Colors.blue, // Blue background
-              foregroundColor: Colors.white, // White text
+              padding: const EdgeInsets.symmetric(
+                vertical: 16.0,
+                horizontal: 20.0,
+              ),
+              backgroundColor: const Color(
+                0xFF0066CC,
+              ), // Changed to your standard blue
+              foregroundColor: Colors.white, // Changed to black text
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8.0),
+                borderRadius: BorderRadius.circular(10.0), // Changed to 10.0
               ),
               textStyle: const TextStyle(
+                fontFamily: 'Poppins',
                 fontSize: 18.0,
-                fontWeight: FontWeight.bold,
+                fontWeight: FontWeight.normal,
               ),
             ),
-            child: const Text('BUAT AKUN ADMIN'),
+            child: const Text('Buat Akun Admin'),
           ),
         ],
       ),

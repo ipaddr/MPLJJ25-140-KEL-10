@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class EditUserProfileFormWidget extends StatefulWidget {
-  const EditUserProfileFormWidget({Key? key}) : super(key: key);
+  const EditUserProfileFormWidget({super.key});
 
   @override
   _EditUserProfileFormWidgetState createState() =>
@@ -87,6 +87,22 @@ class _EditUserProfileFormWidgetState extends State<EditUserProfileFormWidget> {
           const SizedBox(height: 24.0),
           ElevatedButton(
             onPressed: _saveChanges,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0066CC),
+              foregroundColor: Colors.black,
+              padding: const EdgeInsets.symmetric(
+                vertical: 15.0,
+                horizontal: 20.0,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10.0),
+              ),
+              textStyle: const TextStyle(
+                fontFamily: 'Poppins',
+                fontSize: 16.0,
+                fontWeight: FontWeight.normal,
+              ),
+            ),
             child: const Text('Simpan Perubahan'),
           ),
         ],

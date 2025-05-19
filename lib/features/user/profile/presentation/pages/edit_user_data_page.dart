@@ -7,10 +7,28 @@ class EditUserDataPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Ubah Data Pengguna')),
-      body: const Padding(
-        padding: EdgeInsets.all(16.0),
-        child: EditUserProfileFormWidget(),
+      appBar: AppBar(
+        title: const Text(
+          "Ubah Data Pengguna",
+          style: TextStyle(color: Colors.white),
+        ),
+        backgroundColor: Colors.blue,
+        centerTitle: true,
+      ),
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.blue.shade100, Colors.blue.shade200],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: const EditUserProfileFormWidget(),
+        ),
       ),
     );
   }

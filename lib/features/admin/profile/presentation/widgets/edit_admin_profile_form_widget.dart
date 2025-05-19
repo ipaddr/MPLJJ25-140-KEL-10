@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class AdminEditProfileFormWidget extends StatefulWidget {
-  const AdminEditProfileFormWidget({Key? key}) : super(key: key);
+  const AdminEditProfileFormWidget({super.key});
 
   @override
   _AdminEditProfileFormWidgetState createState() =>
@@ -90,12 +90,24 @@ class _AdminEditProfileFormWidgetState
             ),
           ),
           const SizedBox(height: 24.0),
+          // Update button styling
           ElevatedButton(
             onPressed: _saveChanges,
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue,
+              backgroundColor: const Color(0xFF0066CC),
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 12.0),
+              padding: const EdgeInsets.symmetric(
+                vertical: 15.0,
+                horizontal: 20.0,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10.0),
+              ),
+              textStyle: const TextStyle(
+                fontFamily: 'Poppins',
+                fontSize: 16.0,
+                fontWeight: FontWeight.normal,
+              ),
             ),
             child: const Text('Simpan Perubahan'),
           ),

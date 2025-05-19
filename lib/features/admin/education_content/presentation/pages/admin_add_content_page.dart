@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:socio_care/core/navigation/route_names.dart';
-import 'admin_content_editor_page.dart';
 
 // This is a simple redirect page to the editor in "new" mode.
 // You could also directly navigate to AdminContentEditorPage without this intermediate page

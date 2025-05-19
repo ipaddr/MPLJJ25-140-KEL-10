@@ -13,86 +13,80 @@ class UserDashboardPage extends StatelessWidget {
       backgroundColor: const Color(0xFFE3F2FD), // Light blue background
       extendBody: true,
       // AppBar with gradient
-      appBar: AppBar(title: const Text("Dashboard")),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Welcome banner
-            Container(
-              height: 120, // Adjust height as needed
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.blue, Colors.lightBlue],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
+      appBar: AppBar(
+        title: const Text("Dashboard", style: TextStyle(color: Colors.white)),
+        backgroundColor: Colors.blue,
+        centerTitle: true,
+      ),
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.blue.shade100, Colors.blue.shade200],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(100.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Feature cards directly in a column layout
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                    // Program Bantuan Card
+                    _buildFeatureCard(
+                      context,
+                      title: 'Lihat Program Bantuan',
+                      imagePath: 'assets/images/credit_card.png',
+                      onTap: () {
+                        // Navigate to Program Explorer
+                        context.go(RouteNames.programExplorer);
+                      },
+                    ),
+                    const SizedBox(height: 16.0),
+
+                    // Konsultasi AI Card
+                    _buildFeatureCard(
+                      context,
+                      title: 'Konsultasi AI',
+                      imagePath: 'assets/images/chat.png',
+                      onTap: () {
+                        context.goNamed('chatbot');
+                      },
+                    ),
+                    const SizedBox(height: 16.0),
+
+                    // Rekomendasi Program Card
+                    _buildFeatureCard(
+                      context,
+                      title: 'Rekomendasi Program Saya',
+                      imagePath: 'assets/images/growth.png',
+                      onTap: () {
+                        // Navigate to Personalized Recommendations
+                        context.go(RouteNames.programRecommendations);
+                      },
+                    ),
+                    const SizedBox(height: 16.0),
+
+                    // Edukasi Card
+                    _buildFeatureCard(
+                      context,
+                      title: 'Edukasi & Tips Keuangan',
+                      imagePath: 'assets/images/education.png',
+                      onTap: () {
+                        context.goNamed('education');
+                      },
+                    ),
+                  ],
                 ),
               ),
-            ),
-
-            // Feature cards in a column layout
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Card(
-                // Wrap ListView in a Card for rounded corners and shadow
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16.0),
-                ),
-                elevation: 4.0,
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    children: [
-                      // Program Bantuan Card
-                      _buildFeatureCard(
-                        context,
-                        title: 'Lihat Program Bantuan',
-                        imagePath: 'assets/images/credit_card.png',
-                        onTap: () {
-                          // Navigate to Program Explorer
-                          context.go(RouteNames.programExplorer);
-                        },
-                      ),
-                      const SizedBox(height: 16.0),
-
-                      // Konsultasi AI Card
-                      _buildFeatureCard(
-                        context,
-                        title: 'Konsultasi AI',
-                        imagePath: 'assets/images/chat.png',
-                        onTap: () {
-                          context.goNamed('chatbot');
-                        },
-                      ),
-                      const SizedBox(height: 16.0),
-
-                      // Rekomendasi Program Card
-                      _buildFeatureCard(
-                        context,
-                        title: 'Rekomendasi Program Saya',
-                        imagePath: 'assets/images/growth.png',
-                        onTap: () {
-                          // Navigate to Personalized Recommendations
-                          context.go(RouteNames.programRecommendations);
-                        },
-                      ),
-                      const SizedBox(height: 16.0),
-
-                      // Edukasi Card
-                      _buildFeatureCard(
-                        context,
-                        title: 'Edukasi & Tips Keuangan',
-                        imagePath: 'assets/images/education.png',
-                        onTap: () {
-                          context.goNamed('education');
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
       bottomNavigationBar: const UserBottomNavigationBar(
@@ -117,22 +111,27 @@ class UserDashboardPage extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(16.0),
         child: Padding(
+          // Use a Row to arrange image and text horizontally
           padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Image.asset(
-                imagePath,
+              SizedBox(
                 width: 40,
                 height: 40,
-              ), // Smaller icon size
-              const SizedBox(height: 12.0), // Increased spacing
-              Text(
-                title,
-                textAlign: TextAlign.left,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 16,
+                child: Image.asset(imagePath, fit: BoxFit.contain),
+              ),
+              const SizedBox(width: 16.0),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                    ),
+                  ),
                 ),
               ),
             ],

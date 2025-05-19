@@ -7,6 +7,8 @@ import 'package:socio_care/features/admin/profile/presentation/pages/edit_admin_
 import 'package:socio_care/features/auth/presentation/pages/splash_page.dart';
 import 'package:socio_care/features/auth/presentation/pages/onboarding_page.dart';
 import 'package:socio_care/features/user/auth/presentation/pages/user_login_page.dart';
+import 'package:socio_care/features/user/auth/presentation/pages/user_new_password_page.dart';
+import 'package:socio_care/features/user/auth/presentation/pages/user_otp_page.dart';
 import 'package:socio_care/features/user/auth/presentation/pages/user_register_page.dart';
 import 'package:socio_care/features/user/auth/presentation/pages/user_forgot_password_page.dart';
 import 'package:socio_care/features/user/chatbot_ai/presentation/pages/ai_chatbot_page.dart';
@@ -21,6 +23,8 @@ import 'package:socio_care/features/user/programs/presentation/pages/my_recommen
 import 'package:socio_care/features/admin/auth/presentation/pages/admin_login_page.dart';
 import 'package:socio_care/features/admin/auth/presentation/pages/admin_register_page.dart';
 import 'package:socio_care/features/admin/auth/presentation/pages/admin_forgot_password_page.dart';
+import 'package:socio_care/features/admin/auth/presentation/pages/admin_otp_page.dart';
+import 'package:socio_care/features/admin/auth/presentation/pages/admin_new_password_page.dart';
 import 'package:socio_care/features/admin/user_management/presentation/pages/admin_user_list_page.dart';
 import 'package:socio_care/features/admin/user_management/presentation/pages/admin_edit_user_page.dart';
 import 'package:socio_care/features/admin/program_management/presentation/pages/admin_program_list_page.dart';
@@ -70,13 +74,23 @@ final GoRouter appRouter = GoRouter(
       builder: (context, state) => const ForgotPasswordPage(),
     ),
     GoRoute(
+      path: RouteNames.userOtp,
+      name: 'user-otp',
+      builder: (context, state) => const UserOtpPage(),
+    ),
+    GoRoute(
+      path: RouteNames.userNewPassword,
+      name: 'user-new-password',
+      builder: (context, state) => const UserNewPasswordPage(),
+    ),
+    GoRoute(
       path: RouteNames.editUserProfile,
       name: 'user-edit-profile',
       builder: (context, state) => const EditUserDataPage(),
     ),
     GoRoute(
       path: RouteNames.userEducationDetail,
-      name: 'education-detail',
+      name: 'user-education-detail',
       builder:
           (context, state) => EducationDetailPage(
             articleId: state.pathParameters['articleId'] ?? '',
@@ -90,37 +104,37 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(
       path: RouteNames.userDashboard,
-      name: 'dashboard',
+      name: 'user-dashboard',
       builder: (context, state) => const UserDashboardPage(),
     ),
     GoRoute(
       path: RouteNames.userChatbot,
-      name: 'chatbot',
+      name: 'user-chatbot',
       builder: (context, state) => const AiChatbotPage(),
     ),
     GoRoute(
       path: RouteNames.userEducation,
-      name: 'education',
+      name: 'user-education',
       builder: (context, state) => const EducationListPage(),
     ),
     GoRoute(
       path: RouteNames.userProfile,
-      name: 'profile',
+      name: 'user-profile',
       builder: (context, state) => const UserProfilePage(),
     ),
     GoRoute(
       path: RouteNames.programExplorer,
-      name: 'program-explorer',
+      name: 'user-program-explorer',
       builder: (context, state) => const ProgramExplorerPage(),
     ),
     GoRoute(
       path: RouteNames.programRecommendations,
-      name: 'recommendations',
+      name: 'user-recommendations',
       builder: (context, state) => const MyRecommendationsPage(),
     ),
     GoRoute(
       path: RouteNames.programDetail,
-      name: 'program-detail',
+      name: 'user-program-detail',
       builder:
           (context, state) => ProgramDetailPage(
             programId: state.pathParameters['programId'] ?? '',
@@ -145,6 +159,16 @@ final GoRouter appRouter = GoRouter(
       path: RouteNames.adminForgotPassword,
       name: 'admin-forgot-password',
       builder: (context, state) => const AdminForgotPasswordPage(),
+    ),
+    GoRoute(
+      path: RouteNames.adminOtp,
+      name: 'admin-otp',
+      builder: (context, state) => const AdminOtpPage(),
+    ),
+    GoRoute(
+      path: RouteNames.adminNewPassword,
+      name: 'admin-new-password',
+      builder: (context, state) => const AdminNewPasswordPage(),
     ),
     GoRoute(
       path: RouteNames.adminDashboard,

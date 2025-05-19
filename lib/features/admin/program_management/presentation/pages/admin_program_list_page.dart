@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:socio_care/core/navigation/route_names.dart'; // Adjust if needed
+import 'package:socio_care/features/admin/core_admin/presentation/widgets/admin_navigation_drawer.dart';
 import '../widgets/admin_program_card_widget.dart';
 
 class AdminProgramListPage extends StatefulWidget {
@@ -138,14 +139,9 @@ class _AdminProgramListPageState extends State<AdminProgramListPage> {
         title: const Text('Manajemen Program Bantuan'),
         backgroundColor: Colors.blue.shade700,
         foregroundColor: Colors.white,
-        leading: IconButton(
-          // Back button to Admin Dashboard
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            context.go(RouteNames.adminDashboard); // Navigate back to dashboard
-          },
-        ),
       ),
+      drawer:
+          const AdminNavigationDrawer(), // Your Admin Navigation Drawer widget
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(

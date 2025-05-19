@@ -82,8 +82,8 @@ class _AdminProgramDetailPageState extends State<AdminProgramDetailPage> {
     print('Deskripsi: ${_deskripsiController.text}');
     print('Syarat & Ketentuan: ${_syaratKetentuanController.text}');
     print('Cara Pendaftaran: ${_caraPendaftaranController.text}');
-    print('Kategori: ${_selectedCategory}');
-    print('Status Aktif: ${_isActive}'); // Get state from toggle
+    print('Kategori: $_selectedCategory');
+    print('Status Aktif: $_isActive'); // Get state from toggle
 
     // Call API to update program data
     // After successful save, maybe navigate back to program list

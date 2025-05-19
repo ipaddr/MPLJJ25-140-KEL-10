@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:socio_care/core/navigation/route_names.dart';
 
 class AdminNavigationDrawer extends StatelessWidget {
-  const AdminNavigationDrawer({Key? key}) : super(key: key);
+  const AdminNavigationDrawer({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -22,6 +22,7 @@ class AdminNavigationDrawer extends StatelessWidget {
             leading: const Icon(Icons.dashboard),
             title: const Text('Dashboard'),
             onTap: () {
+              context.go(RouteNames.adminDashboard);
               Navigator.pop(context);
             },
           ),
@@ -40,7 +41,6 @@ class AdminNavigationDrawer extends StatelessWidget {
             title: const Text('Manajemen Program'),
             onTap: () {
               context.go(RouteNames.adminProgramList);
-              Navigator.pop(context);
             },
           ),
           ListTile(

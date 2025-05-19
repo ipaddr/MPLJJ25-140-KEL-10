@@ -3,8 +3,7 @@ import 'package:flutter/material.dart';
 class OnboardingSliderWidget extends StatelessWidget {
   final int pageIndex; // Or any other parameter to determine content
 
-  const OnboardingSliderWidget({Key? key, required this.pageIndex})
-    : super(key: key);
+  const OnboardingSliderWidget({super.key, required this.pageIndex});
 
   @override
   Widget build(BuildContext context) {

@@ -40,7 +40,7 @@ class _AdminAddProgramPageState extends State<AdminAddProgramPage> {
     if (_formKey.currentState!.validate()) {
       // TODO: Implement logic to add a new program
       print('Adding new program: ${_namaProgramController.text}');
-      print('Category: ${_selectedCategory}');
+      print('Category: $_selectedCategory');
       // Call API to create new program
 
       // After successful creation, navigate back to the program list
