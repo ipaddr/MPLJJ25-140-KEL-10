@@ -12,10 +12,7 @@ class AdminEditProfilePage extends StatelessWidget {
         backgroundColor: Colors.blue.shade700,
         foregroundColor: Colors.white,
       ),
-      body: const Padding(
-        padding: EdgeInsets.all(16.0),
-        child: AdminEditProfileFormWidget(),
-      ),
+      body: const AdminEditProfileFormWidget(),
     );
   }
 }

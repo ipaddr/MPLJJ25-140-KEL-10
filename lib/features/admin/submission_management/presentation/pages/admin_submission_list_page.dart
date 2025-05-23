@@ -1,9 +1,11 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:socio_care/core/navigation/route_names.dart'; // Adjust if needed
+import 'package:socio_care/core/navigation/route_names.dart';
 import 'package:socio_care/features/admin/core_admin/presentation/widgets/admin_navigation_drawer.dart';
 import '../widgets/admin_submission_card_widget.dart';
-import 'package:intl/intl.dart'; // For date formatting
+import '../../data/admin_submission_service.dart';
+import 'package:intl/intl.dart';
 
 class AdminSubmissionListPage extends StatefulWidget {
   const AdminSubmissionListPage({super.key});
@@ -14,74 +16,19 @@ class AdminSubmissionListPage extends StatefulWidget {
 }
 
 class _AdminSubmissionListPageState extends State<AdminSubmissionListPage> {
-  // Placeholder data - replace with actual data fetching logic
-  final List<Map<String, dynamic>> _allSubmissions = [
-    {
-      'id': 'sub_001',
-      'user_name': 'Budi Santoso',
-      'program_name': 'Beasiswa Pendidikan Anak',
-      'status': 'Baru',
-      'submission_date': DateTime(2023, 10, 26),
-      // Add more submission details here for detail page
-      'user_id': 'user_001',
-      'program_id': 'prog_001',
-      'user_details': {'email': 'budi@example.com', 'lokasi': 'Jakarta'},
-      ' syarat_terpenuhi': {'KTP': true, 'KK': true, 'Slip Gaji': false},
-      'catatan_admin': 'Menunggu review dokumen',
-    },
-    {
-      'id': 'sub_002',
-      'user_name': 'Siti Aminah',
-      'program_name': 'Bantuan Kesehatan Lansia',
-      'status': 'Diproses',
-      'submission_date': DateTime(2023, 10, 25),
-      'user_id': 'user_002',
-      'program_id': 'prog_002',
-      'user_details': {'email': 'siti@example.com', 'lokasi': 'Bandung'},
-      ' syarat_terpenuhi': {'Surat Sakit': true, 'Kartu Lansia': true},
-      'catatan_admin': 'Dokumen lengkap, menunggu persetujuan',
-    },
-    {
-      'id': 'sub_003',
-      'user_name': 'Agus Dharmawan',
-      'program_name': 'Pelatihan Keterampilan Digital',
-      'status': 'Disetujui',
-      'submission_date': DateTime(2023, 10, 20),
-      'user_id': 'user_003',
-      'program_id': 'prog_003',
-      'user_details': {'email': 'agus@example.com', 'lokasi': 'Surabaya'},
-      ' syarat_terpenuhi': {'Formulir Online': true, 'Portofolio': true},
-      'catatan_admin': 'Peserta terdaftar di pelatihan',
-    },
-    {
-      'id': 'sub_004',
-      'user_name': 'Dewi Lestari',
-      'program_name': 'Bantuan Pangan Keluarga Pra-Sejahtera',
-      'status': 'Ditolak',
-      'submission_date': DateTime(2023, 10, 18),
-      'user_id': 'user_004',
-      'program_id': 'prog_004',
-      'user_details': {'email': 'dewi@example.com', 'lokasi': 'Yogyakarta'},
-      ' syarat_terpenuhi': {'Surat Keterangan Tidak Mampu': false},
-      'catatan_admin': 'Persyaratan tidak terpenuhi',
-    },
-    // Add more placeholder submissions
-  ];
-
+  final AdminSubmissionService _submissionService = AdminSubmissionService();
+  
+  List<Map<String, dynamic>> _allSubmissions = [];
   List<Map<String, dynamic>> _filteredSubmissions = [];
+  List<String> _programNames = ['Semua Program'];
+  
   String? _selectedProgramFilter;
   String? _selectedStatusFilter;
   DateTime? _startDateFilter;
   DateTime? _endDateFilter;
+  bool _isLoading = true;
+  String? _errorMessage;
 
-  // Placeholder filter options (fetch from backend in real app)
-  final List<String> _programNames = [
-    'Semua Program',
-    'Beasiswa Pendidikan Anak',
-    'Bantuan Kesehatan Lansia',
-    'Pelatihan Keterampilan Digital',
-    'Bantuan Pangan Keluarga Pra-Sejahtera',
-  ];
   final List<String> _statuses = [
     'Semua Status',
     'Baru',
@@ -93,42 +40,72 @@ class _AdminSubmissionListPageState extends State<AdminSubmissionListPage> {
   @override
   void initState() {
     super.initState();
-    _filteredSubmissions = _allSubmissions;
     _selectedProgramFilter = _programNames.first;
     _selectedStatusFilter = _statuses.first;
+    _loadSubmissions();
   }
 
-  void _filterSubmissions() {
-    List<Map<String, dynamic>> submissions =
-        _allSubmissions.where((submission) {
-          // Program Filter
-          final programMatch =
-              _selectedProgramFilter == _programNames.first ||
-              submission['program_name'] == _selectedProgramFilter;
-
-          // Status Filter
-          final statusMatch =
-              _selectedStatusFilter == _statuses.first ||
-              submission['status'] == _selectedStatusFilter;
-
-          // Date Range Filter
-          final submissionDate = submission['submission_date'] as DateTime;
-          final dateMatch =
-              (_startDateFilter == null ||
-                  submissionDate.isAfter(
-                    _startDateFilter!.subtract(const Duration(days: 1)),
-                  )) &&
-              (_endDateFilter == null ||
-                  submissionDate.isBefore(
-                    _endDateFilter!.add(const Duration(days: 1)),
-                  ));
-
-          return programMatch && statusMatch && dateMatch;
-        }).toList();
-
+  Future<void> _loadSubmissions() async {
     setState(() {
-      _filteredSubmissions = submissions;
+      _isLoading = true;
+      _errorMessage = null;
     });
+
+    try {
+      // Load program names and submissions concurrently
+      final results = await Future.wait([
+        _submissionService.getProgramNames(),
+        _submissionService.getAllSubmissions(
+          programFilter: _selectedProgramFilter != 'Semua Program' ? _selectedProgramFilter : null,
+          statusFilter: _selectedStatusFilter != 'Semua Status' ? _selectedStatusFilter : null,
+          startDate: _startDateFilter,
+          endDate: _endDateFilter,
+        ),
+      ]);
+
+      final programNames = results[0] as List<String>;
+      final submissions = results[1] as List<Map<String, dynamic>>;
+
+      setState(() {
+        _programNames = programNames;
+        if (!_programNames.contains(_selectedProgramFilter)) {
+          _selectedProgramFilter = _programNames.first;
+        }
+        _allSubmissions = submissions;
+        _filteredSubmissions = submissions;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Gagal memuat data pengajuan: ${e.toString()}';
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _filterSubmissions() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final submissions = await _submissionService.getAllSubmissions(
+        programFilter: _selectedProgramFilter != 'Semua Program' ? _selectedProgramFilter : null,
+        statusFilter: _selectedStatusFilter != 'Semua Status' ? _selectedStatusFilter : null,
+        startDate: _startDateFilter,
+        endDate: _endDateFilter,
+      );
+
+      setState(() {
+        _filteredSubmissions = submissions;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Gagal memfilter data: ${e.toString()}';
+        _isLoading = false;
+      });
+    }
   }
 
   Future<void> _selectDateRange(BuildContext context) async {
@@ -136,10 +113,9 @@ class _AdminSubmissionListPageState extends State<AdminSubmissionListPage> {
       context: context,
       firstDate: DateTime(2020),
       lastDate: DateTime.now(),
-      initialDateRange:
-          _startDateFilter != null && _endDateFilter != null
-              ? DateTimeRange(start: _startDateFilter!, end: _endDateFilter!)
-              : null,
+      initialDateRange: _startDateFilter != null && _endDateFilter != null
+          ? DateTimeRange(start: _startDateFilter!, end: _endDateFilter!)
+          : null,
     );
 
     if (picked != null) {
@@ -147,55 +123,142 @@ class _AdminSubmissionListPageState extends State<AdminSubmissionListPage> {
         _startDateFilter = picked.start;
         _endDateFilter = picked.end;
       });
-      _filterSubmissions();
+      await _filterSubmissions();
     }
   }
 
+  void _clearDateFilter() {
+    setState(() {
+      _startDateFilter = null;
+      _endDateFilter = null;
+    });
+    _filterSubmissions();
+  }
+
   void _viewSubmissionDetail(String submissionId) {
-    // TODO: Navigate to Submission Detail Page
-    context.go(
-      '${RouteNames.adminSubmissionDetail}/$submissionId',
-    ); // Example with go_router
+    context.go('${RouteNames.adminSubmissionDetail}/$submissionId');
   }
 
-  void _approveSubmission(String submissionId) {
-    // TODO: Implement approve logic (show confirmation, call API to update status)
-    print('Attempting to approve submission with ID: $submissionId');
-    // Example: Update status in local list (for demonstration)
-    setState(() {
-      final submissionIndex = _allSubmissions.indexWhere(
-        (sub) => sub['id'] == submissionId,
-      );
-      if (submissionIndex != -1) {
-        _allSubmissions[submissionIndex]['status'] = 'Disetujui';
-        _filterSubmissions(); // Re-filter after status update
-      }
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Submission $submissionId approved (placeholder)'),
+  Future<void> _approveSubmission(String submissionId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Konfirmasi Persetujuan'),
+        content: const Text('Apakah Anda yakin ingin menyetujui pengajuan ini?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.green),
+            child: const Text('Setujui'),
+          ),
+        ],
       ),
     );
+
+    if (confirmed == true) {
+      setState(() {
+        _isLoading = true;
+      });
+
+      try {
+        final success = await _submissionService.approveSubmission(
+          submissionId: submissionId,
+          notes: 'Disetujui oleh admin',
+        );
+
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Pengajuan berhasil disetujui')),
+          );
+          await _filterSubmissions(); // Reload submissions
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Gagal menyetujui pengajuan')),
+          );
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${e.toString()}')),
+        );
+      } finally {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
-  void _rejectSubmission(String submissionId) {
-    // TODO: Implement reject logic (show confirmation, call API to update status)
-    print('Attempting to reject submission with ID: $submissionId');
-    // Example: Update status in local list (for demonstration)
-    setState(() {
-      final submissionIndex = _allSubmissions.indexWhere(
-        (sub) => sub['id'] == submissionId,
-      );
-      if (submissionIndex != -1) {
-        _allSubmissions[submissionIndex]['status'] = 'Ditolak';
-        _filterSubmissions(); // Re-filter after status update
-      }
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Submission $submissionId rejected (placeholder)'),
+  Future<void> _rejectSubmission(String submissionId) async {
+    String? rejectionNotes;
+    
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Konfirmasi Penolakan'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Apakah Anda yakin ingin menolak pengajuan ini?'),
+            const SizedBox(height: 16),
+            TextField(
+              decoration: const InputDecoration(
+                labelText: 'Alasan penolakan (opsional)',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 3,
+              onChanged: (value) => rejectionNotes = value,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Tolak'),
+          ),
+        ],
       ),
     );
+
+    if (confirmed == true) {
+      setState(() {
+        _isLoading = true;
+      });
+
+      try {
+        final success = await _submissionService.rejectSubmission(
+          submissionId: submissionId,
+          notes: rejectionNotes?.isNotEmpty == true ? rejectionNotes! : 'Ditolak oleh admin',
+        );
+
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Pengajuan berhasil ditolak')),
+          );
+          await _filterSubmissions(); // Reload submissions
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Gagal menolak pengajuan')),
+          );
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${e.toString()}')),
+        );
+      } finally {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -205,18 +268,20 @@ class _AdminSubmissionListPageState extends State<AdminSubmissionListPage> {
         title: const Text('Manajemen Pengajuan Bantuan'),
         backgroundColor: Colors.blue.shade700,
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _isLoading ? null : _loadSubmissions,
+          ),
+        ],
       ),
-      drawer:
-          const AdminNavigationDrawer(), // Your Admin Navigation Drawer widget
+      drawer: const AdminNavigationDrawer(),
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              Colors.blue.shade100,
-              Colors.blue.shade200,
-            ], // Consistent gradient
+            colors: [Colors.blue.shade100, Colors.blue.shade200],
           ),
         ),
         child: Column(
@@ -225,7 +290,7 @@ class _AdminSubmissionListPageState extends State<AdminSubmissionListPage> {
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 children: [
-                  // Filters (Program, Status, Date Range)
+                  // Filters (Program, Status)
                   Row(
                     children: [
                       // Program Filter
@@ -245,13 +310,15 @@ class _AdminSubmissionListPageState extends State<AdminSubmissionListPage> {
                             ),
                           ),
                           value: _selectedProgramFilter,
-                          items:
-                              _programNames.map((String programName) {
-                                return DropdownMenuItem<String>(
-                                  value: programName,
-                                  child: Text(programName),
-                                );
-                              }).toList(),
+                          items: _programNames.map((String programName) {
+                            return DropdownMenuItem<String>(
+                              value: programName,
+                              child: Text(
+                                programName,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            );
+                          }).toList(),
                           onChanged: (newValue) {
                             setState(() {
                               _selectedProgramFilter = newValue;
@@ -278,13 +345,12 @@ class _AdminSubmissionListPageState extends State<AdminSubmissionListPage> {
                             ),
                           ),
                           value: _selectedStatusFilter,
-                          items:
-                              _statuses.map((String status) {
-                                return DropdownMenuItem<String>(
-                                  value: status,
-                                  child: Text(status),
-                                );
-                              }).toList(),
+                          items: _statuses.map((String status) {
+                            return DropdownMenuItem<String>(
+                              value: status,
+                              child: Text(status),
+                            );
+                          }).toList(),
                           onChanged: (newValue) {
                             setState(() {
                               _selectedStatusFilter = newValue;
@@ -305,29 +371,26 @@ class _AdminSubmissionListPageState extends State<AdminSubmissionListPage> {
                         borderRadius: BorderRadius.circular(8.0),
                       ),
                       side: const BorderSide(color: Colors.blue),
+                      backgroundColor: Colors.white.withOpacity(0.8),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         const Icon(Icons.calendar_today, size: 20.0),
                         const SizedBox(width: 8.0),
-                        Text(
-                          _startDateFilter == null || _endDateFilter == null
-                              ? 'Pilih Rentang Tanggal'
-                              : '${DateFormat('dd MMM yyyy').format(_startDateFilter!)} - ${DateFormat('dd MMM yyyy').format(_endDateFilter!)}',
-                          style: const TextStyle(fontSize: 16),
+                        Expanded(
+                          child: Text(
+                            _startDateFilter == null || _endDateFilter == null
+                                ? 'Pilih Rentang Tanggal'
+                                : '${DateFormat('dd MMM yyyy').format(_startDateFilter!)} - ${DateFormat('dd MMM yyyy').format(_endDateFilter!)}',
+                            style: const TextStyle(fontSize: 14),
+                            textAlign: TextAlign.center,
+                          ),
                         ),
-                        if (_startDateFilter !=
-                            null) // Add clear button if date is selected
+                        if (_startDateFilter != null)
                           IconButton(
                             icon: const Icon(Icons.clear, size: 20.0),
-                            onPressed: () {
-                              setState(() {
-                                _startDateFilter = null;
-                                _endDateFilter = null;
-                              });
-                              _filterSubmissions();
-                            },
+                            onPressed: _clearDateFilter,
                           ),
                       ],
                     ),
@@ -337,18 +400,54 @@ class _AdminSubmissionListPageState extends State<AdminSubmissionListPage> {
             ),
             // Submission List
             Expanded(
-              child: ListView.builder(
-                itemCount: _filteredSubmissions.length,
-                itemBuilder: (context, index) {
-                  final submission = _filteredSubmissions[index];
-                  return AdminSubmissionCardWidget(
-                    submission: submission,
-                    onViewDetail: () => _viewSubmissionDetail(submission['id']),
-                    onApprove: () => _approveSubmission(submission['id']),
-                    onReject: () => _rejectSubmission(submission['id']),
-                  );
-                },
-              ),
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _errorMessage != null
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                              const SizedBox(height: 16),
+                              Text(_errorMessage!, textAlign: TextAlign.center),
+                              const SizedBox(height: 16),
+                              ElevatedButton(
+                                onPressed: _loadSubmissions,
+                                child: const Text('Coba Lagi'),
+                              ),
+                            ],
+                          ),
+                        )
+                      : _filteredSubmissions.isEmpty
+                          ? const Center(
+                              child: Text(
+                                'Tidak ada pengajuan yang ditemukan',
+                                style: TextStyle(fontSize: 16),
+                              ),
+                            )
+                          : RefreshIndicator(
+                              onRefresh: _loadSubmissions,
+                              child: ListView.builder(
+                                itemCount: _filteredSubmissions.length,
+                                itemBuilder: (context, index) {
+                                  final submission = _filteredSubmissions[index];
+                                  final submissionDate = submission['submissionDate'] as Timestamp?;
+                                  
+                                  return AdminSubmissionCardWidget(
+                                    submission: {
+                                      'id': submission['id'],
+                                      'user_name': submission['userName'],
+                                      'program_name': submission['programName'],
+                                      'status': submission['status'],
+                                      'submission_date': submissionDate?.toDate(),
+                                    },
+                                    onViewDetail: () => _viewSubmissionDetail(submission['id']),
+                                    onApprove: () => _approveSubmission(submission['id']),
+                                    onReject: () => _rejectSubmission(submission['id']),
+                                  );
+                                },
+                              ),
+                            ),
             ),
           ],
         ),

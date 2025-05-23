@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:socio_care/core/navigation/route_names.dart';
+import '../../data/admin_program_service.dart';
+import 'dart:io';
 
 class AdminAddProgramPage extends StatefulWidget {
   const AdminAddProgramPage({super.key});
@@ -10,44 +13,107 @@ class AdminAddProgramPage extends StatefulWidget {
 }
 
 class _AdminAddProgramPageState extends State<AdminAddProgramPage> {
+  final AdminProgramService _programService = AdminProgramService();
   final _formKey = GlobalKey<FormState>();
+  
   final TextEditingController _namaProgramController = TextEditingController();
+  final TextEditingController _organizerController = TextEditingController();
+  final TextEditingController _targetAudienceController = TextEditingController();
   final TextEditingController _deskripsiController = TextEditingController();
-  final TextEditingController _syaratKetentuanController =
-      TextEditingController();
-  final TextEditingController _caraPendaftaranController =
-      TextEditingController();
+  final TextEditingController _syaratKetentuanController = TextEditingController();
+  final TextEditingController _caraPendaftaranController = TextEditingController();
+  
   String? _selectedCategory;
+  String? _selectedStatus = 'active';
+  File? _selectedImage;
+  bool _isLoading = false;
 
-  // Placeholder categories for dropdown
   final List<String> _categories = [
-    'Pendidikan',
     'Kesehatan',
-    'Pemberdayaan',
-    'Sosial',
+    'Pendidikan',
+    'Modal Usaha',
+    'Makanan Pokok',
+  ];
+
+  final List<String> _statuses = [
+    'active',
+    'inactive',
+    'upcoming',
   ];
 
   @override
   void dispose() {
     _namaProgramController.dispose();
+    _organizerController.dispose();
+    _targetAudienceController.dispose();
     _deskripsiController.dispose();
     _syaratKetentuanController.dispose();
     _caraPendaftaranController.dispose();
     super.dispose();
   }
 
-  void _addProgram() {
-    if (_formKey.currentState!.validate()) {
-      // TODO: Implement logic to add a new program
-      print('Adding new program: ${_namaProgramController.text}');
-      print('Category: $_selectedCategory');
-      // Call API to create new program
+  Future<void> _pickImage() async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+    
+    if (image != null) {
+      setState(() {
+        _selectedImage = File(image.path);
+      });
+    }
+  }
 
-      // After successful creation, navigate back to the program list
-      // context.go(RouteNames.adminProgramList);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Adding program (placeholder)')),
-      );
+  Future<void> _addProgram() async {
+    if (_formKey.currentState!.validate()) {
+      setState(() {
+        _isLoading = true;
+      });
+
+      try {
+        final programId = await _programService.createProgram(
+          programName: _namaProgramController.text.trim(),
+          organizer: _organizerController.text.trim(),
+          targetAudience: _targetAudienceController.text.trim(),
+          category: _selectedCategory!,
+          description: _deskripsiController.text.trim(),
+          termsAndConditions: _syaratKetentuanController.text.trim(),
+          registrationGuide: _caraPendaftaranController.text.trim(),
+          status: _selectedStatus!,
+          imageFile: _selectedImage,
+        );
+
+        if (programId != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Program berhasil ditambahkan')),
+          );
+          context.go(RouteNames.adminProgramList);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Gagal menambahkan program')),
+          );
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${e.toString()}')),
+        );
+      } finally {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  String _getStatusDisplayName(String status) {
+    switch (status) {
+      case 'active':
+        return 'Aktif';
+      case 'inactive':
+        return 'Tidak Aktif';
+      case 'upcoming':
+        return 'Akan Datang';
+      default:
+        return status;
     }
   }
 
@@ -59,11 +125,8 @@ class _AdminAddProgramPageState extends State<AdminAddProgramPage> {
         backgroundColor: Colors.blue.shade700,
         foregroundColor: Colors.white,
         leading: IconButton(
-          // Back button to Program List Page
           icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            context.go(RouteNames.adminProgramList); // Navigate back
-          },
+          onPressed: () => context.go(RouteNames.adminProgramList),
         ),
       ),
       body: Container(
@@ -71,10 +134,7 @@ class _AdminAddProgramPageState extends State<AdminAddProgramPage> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              Colors.blue.shade100,
-              Colors.blue.shade200,
-            ], // Consistent gradient
+            colors: [Colors.blue.shade100, Colors.blue.shade200],
           ),
         ),
         child: Padding(
@@ -90,6 +150,9 @@ class _AdminAddProgramPageState extends State<AdminAddProgramPage> {
                     controller: _namaProgramController,
                     decoration: const InputDecoration(
                       labelText: 'Nama Program',
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(),
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
@@ -99,19 +162,58 @@ class _AdminAddProgramPageState extends State<AdminAddProgramPage> {
                     },
                   ),
                   const SizedBox(height: 16.0),
+                  
+                  // Organizer
+                  TextFormField(
+                    controller: _organizerController,
+                    decoration: const InputDecoration(
+                      labelText: 'Penyelenggara',
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Penyelenggara tidak boleh kosong';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16.0),
+                  
+                  // Target Audience
+                  TextFormField(
+                    controller: _targetAudienceController,
+                    decoration: const InputDecoration(
+                      labelText: 'Target Penerima',
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Target Penerima tidak boleh kosong';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16.0),
+                  
                   // Category Dropdown
                   DropdownButtonFormField<String>(
                     decoration: const InputDecoration(
                       labelText: 'Kategori Program',
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(),
                     ),
                     value: _selectedCategory,
-                    items:
-                        _categories.map((String category) {
-                          return DropdownMenuItem<String>(
-                            value: category,
-                            child: Text(category),
-                          );
-                        }).toList(),
+                    items: _categories.map((String category) {
+                      return DropdownMenuItem<String>(
+                        value: category,
+                        child: Text(category),
+                      );
+                    }).toList(),
                     onChanged: (newValue) {
                       setState(() {
                         _selectedCategory = newValue;
@@ -125,13 +227,40 @@ class _AdminAddProgramPageState extends State<AdminAddProgramPage> {
                     },
                   ),
                   const SizedBox(height: 16.0),
+                  
+                  // Status Dropdown
+                  DropdownButtonFormField<String>(
+                    decoration: const InputDecoration(
+                      labelText: 'Status Program',
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(),
+                    ),
+                    value: _selectedStatus,
+                    items: _statuses.map((String status) {
+                      return DropdownMenuItem<String>(
+                        value: status,
+                        child: Text(_getStatusDisplayName(status)),
+                      );
+                    }).toList(),
+                    onChanged: (newValue) {
+                      setState(() {
+                        _selectedStatus = newValue;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 16.0),
+                  
                   // Description
                   TextFormField(
                     controller: _deskripsiController,
                     decoration: const InputDecoration(
                       labelText: 'Deskripsi Program',
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(),
                     ),
-                    maxLines: null, // Allow multiple lines
+                    maxLines: 3,
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Deskripsi tidak boleh kosong';
@@ -140,13 +269,17 @@ class _AdminAddProgramPageState extends State<AdminAddProgramPage> {
                     },
                   ),
                   const SizedBox(height: 16.0),
+                  
                   // Terms and Conditions
                   TextFormField(
                     controller: _syaratKetentuanController,
                     decoration: const InputDecoration(
                       labelText: 'Syarat & Ketentuan',
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(),
                     ),
-                    maxLines: null, // Allow multiple lines
+                    maxLines: 3,
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Syarat & Ketentuan tidak boleh kosong';
@@ -155,24 +288,80 @@ class _AdminAddProgramPageState extends State<AdminAddProgramPage> {
                     },
                   ),
                   const SizedBox(height: 16.0),
-                  // How to Register
+                  
+                  // Registration Guide
                   TextFormField(
                     controller: _caraPendaftaranController,
                     decoration: const InputDecoration(
-                      labelText: 'Cara Pendaftaran',
+                      labelText: 'Panduan Pendaftaran',
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(),
                     ),
-                    maxLines: null, // Allow multiple lines
+                    maxLines: 3,
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Cara Pendaftaran tidak boleh kosong';
+                        return 'Panduan Pendaftaran tidak boleh kosong';
                       }
                       return null;
                     },
                   ),
+                  const SizedBox(height: 16.0),
+                  
+                  // Image Upload
+                  Container(
+                    height: 200,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey),
+                      borderRadius: BorderRadius.circular(8.0),
+                      color: Colors.white,
+                    ),
+                    child: _selectedImage != null
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(8.0),
+                            child: Image.file(
+                              _selectedImage!,
+                              fit: BoxFit.cover,
+                              width: double.infinity,
+                            ),
+                          )
+                        : InkWell(
+                            onTap: _pickImage,
+                            child: const Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.add_photo_alternate, size: 50, color: Colors.grey),
+                                  SizedBox(height: 8),
+                                  Text('Tambah Gambar Program', style: TextStyle(color: Colors.grey)),
+                                ],
+                              ),
+                            ),
+                          ),
+                  ),
+                  if (_selectedImage != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Gambar dipilih: ${_selectedImage!.path.split('/').last}',
+                              style: const TextStyle(fontSize: 12, color: Colors.grey),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: _pickImage,
+                            child: const Text('Ganti'),
+                          ),
+                        ],
+                      ),
+                    ),
                   const SizedBox(height: 24.0),
+                  
                   // Add Program Button
                   ElevatedButton(
-                    onPressed: _addProgram,
+                    onPressed: _isLoading ? null : _addProgram,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.blue,
                       foregroundColor: Colors.white,
@@ -185,7 +374,9 @@ class _AdminAddProgramPageState extends State<AdminAddProgramPage> {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    child: const Text('Tambah Program'),
+                    child: _isLoading
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : const Text('Tambah Program'),
                   ),
                 ],
               ),

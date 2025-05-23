@@ -7,8 +7,8 @@ class RouteNames {
   static const String login = '/user/login';
   static const String register = '/user/register';
   static const String forgotPassword = '/user/forgot-password';
-  static const String userOtp = '/user/otp-verification'; // Added route
-  static const String userNewPassword = '/user/new-password'; // Added route
+  static const String userOtp = '/user/otp-verification';
+  static const String userNewPassword = '/user/new-password';
   static const String userDashboard = '/user/dashboard';
   static const String userChatbot = '/user/chatbot';
   static const String userEducation = '/user/education';

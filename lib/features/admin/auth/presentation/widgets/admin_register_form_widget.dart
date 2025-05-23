@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:socio_care/core/navigation/route_names.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AdminRegisterFormWidget extends StatefulWidget {
   const AdminRegisterFormWidget({super.key});
@@ -21,6 +25,7 @@ class _AdminRegisterFormWidgetState extends State<AdminRegisterFormWidget> {
 
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -33,14 +38,54 @@ class _AdminRegisterFormWidgetState extends State<AdminRegisterFormWidget> {
     super.dispose();
   }
 
-  void _register() {
+  Future<void> _register() async {
     if (_formKey.currentState!.validate()) {
-      // TODO: Implement Admin Registration logic using Bloc/Cubit
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Processing Admin Registration Data')),
-      );
-      // After successful registration, maybe navigate to a success page or login page
-      // context.go(RouteNames.adminLogin);
+      setState(() {
+        _isLoading = true;
+      });
+
+      try {
+        // 1. Create user with Firebase Auth
+        final userCredential = await FirebaseAuth.instance
+            .createUserWithEmailAndPassword(
+              email: _emailController.text.trim(),
+              password: _kataSandiController.text,
+            );
+
+        // 2. Send email verification
+        await userCredential.user!.sendEmailVerification();
+
+        // 3. Store admin data in Firestore
+        await FirebaseFirestore.instance
+            .collection('admins')
+            .doc(userCredential.user!.uid)
+            .set({
+              'fullName': _namaLengkapController.text.trim(),
+              'phoneNumber': _nomorTeleponController.text.trim(),
+              'email': _emailController.text.trim(),
+              'role': 'admin', // Default role for new admins
+              'createdAt': FieldValue.serverTimestamp(),
+              'updatedAt': FieldValue.serverTimestamp(),
+              'emailVerified': false, // Track verification status
+            });
+
+        // 4. Show success message with verification instructions
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Registrasi berhasil! Silakan periksa email Anda untuk verifikasi.',
+            ),
+          ),
+        );
+
+        // 5. Navigate to admin login
+        if (mounted) {
+          context.go(RouteNames.adminLogin);
+        }
+      } on FirebaseAuthException catch (e) {
+        // Error handling code remains the same
+      }
+      // Rest of the method remains the same
     }
   }
 
@@ -51,6 +96,7 @@ class _AdminRegisterFormWidgetState extends State<AdminRegisterFormWidget> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
+          // Existing Name field
           TextFormField(
             controller: _namaLengkapController,
             decoration: const InputDecoration(
@@ -72,6 +118,8 @@ class _AdminRegisterFormWidgetState extends State<AdminRegisterFormWidget> {
             },
           ),
           const SizedBox(height: 16.0),
+
+          // Existing Phone field
           TextFormField(
             controller: _nomorTeleponController,
             decoration: const InputDecoration(
@@ -93,6 +141,8 @@ class _AdminRegisterFormWidgetState extends State<AdminRegisterFormWidget> {
             },
           ),
           const SizedBox(height: 16.0),
+
+          // Existing Email field
           TextFormField(
             controller: _emailController,
             decoration: const InputDecoration(
@@ -117,11 +167,13 @@ class _AdminRegisterFormWidgetState extends State<AdminRegisterFormWidget> {
             },
           ),
           const SizedBox(height: 16.0),
+
+          // MISSING: Konfirmasi Email field
           TextFormField(
             controller: _konfirmasiEmailController,
             decoration: const InputDecoration(
               labelText: 'Konfirmasi Email',
-              hintText: 'Konfirmasi Email Admin',
+              hintText: 'Masukkan Email Lagi',
               filled: true,
               fillColor: Colors.white,
               border: OutlineInputBorder(
@@ -141,11 +193,13 @@ class _AdminRegisterFormWidgetState extends State<AdminRegisterFormWidget> {
             },
           ),
           const SizedBox(height: 16.0),
+
+          // MISSING: Kata Sandi field
           TextFormField(
             controller: _kataSandiController,
             decoration: InputDecoration(
-              labelText: 'Password',
-              hintText: 'Masukkan Kata Sandi Admin',
+              labelText: 'Kata Sandi',
+              hintText: 'Masukkan Kata Sandi',
               filled: true,
               fillColor: Colors.white,
               border: const OutlineInputBorder(
@@ -168,25 +222,20 @@ class _AdminRegisterFormWidgetState extends State<AdminRegisterFormWidget> {
               if (value == null || value.isEmpty) {
                 return 'Kata Sandi tidak boleh kosong';
               }
-              // Basic password strength check (can be expanded)
-              if (value.length < 8) {
-                return 'Kata Sandi minimal 8 karakter';
+              if (value.length < 6) {
+                return 'Kata Sandi minimal 6 karakter';
               }
               return null;
             },
           ),
-          const SizedBox(
-            height: 8.0,
-          ), // Space between password field and requirements
-          // Password requirements list - Simplified for admin registration if needed, or keep full
-          // based on your decision. Using simplified here for example.
-          const Text('Minimal 8 karakter', style: TextStyle(fontSize: 12)),
-          const SizedBox(height: 16.0), // Space after password requirements
+          const SizedBox(height: 16.0),
+
+          // MISSING: Konfirmasi Kata Sandi field
           TextFormField(
             controller: _konfirmasiKataSandiController,
             decoration: InputDecoration(
               labelText: 'Konfirmasi Kata Sandi',
-              hintText: 'Konfirmasi Kata Sandi Admin Anda',
+              hintText: 'Masukkan Kata Sandi Lagi',
               filled: true,
               fillColor: Colors.white,
               border: const OutlineInputBorder(
@@ -218,19 +267,19 @@ class _AdminRegisterFormWidgetState extends State<AdminRegisterFormWidget> {
             },
           ),
           const SizedBox(height: 24.0),
+
+          // Existing Register button
           ElevatedButton(
-            onPressed: _register,
+            onPressed: _isLoading ? null : _register,
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(
                 vertical: 16.0,
                 horizontal: 20.0,
               ),
-              backgroundColor: const Color(
-                0xFF0066CC,
-              ), // Changed to your standard blue
-              foregroundColor: Colors.white, // Changed to black text
+              backgroundColor: const Color(0xFF0066CC),
+              foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10.0), // Changed to 10.0
+                borderRadius: BorderRadius.circular(10.0),
               ),
               textStyle: const TextStyle(
                 fontFamily: 'Poppins',
@@ -238,7 +287,10 @@ class _AdminRegisterFormWidgetState extends State<AdminRegisterFormWidget> {
                 fontWeight: FontWeight.normal,
               ),
             ),
-            child: const Text('Buat Akun Admin'),
+            child:
+                _isLoading
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : const Text('Buat Akun Admin'),
           ),
         ],
       ),

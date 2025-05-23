@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:socio_care/core/navigation/route_names.dart'; // Adjust if needed
+import 'package:socio_care/core/navigation/route_names.dart';
 import 'package:socio_care/features/admin/core_admin/presentation/widgets/admin_navigation_drawer.dart';
 import '../widgets/admin_content_card_widget.dart';
-// For date formatting
+import '../../data/admin_content_service.dart';
+import '../../data/models/content_model.dart';
 
 class AdminContentListPage extends StatefulWidget {
   const AdminContentListPage({super.key});
@@ -13,40 +14,15 @@ class AdminContentListPage extends StatefulWidget {
 }
 
 class _AdminContentListPageState extends State<AdminContentListPage> {
-  // Placeholder data - replace with actual data fetching logic
-  final List<Map<String, dynamic>> _allContent = [
-    {
-      'id': 'content_001',
-      'title': 'Panduan Mengajukan Beasiswa',
-      'publish_date': DateTime(2023, 10, 20),
-      'status': 'Dipublikasikan',
-    },
-    {
-      'id': 'content_002',
-      'title': 'Tips Menjaga Kesehatan di Musim Hujan',
-      'publish_date': DateTime(2023, 10, 15),
-      'status': 'Dipublikasikan',
-    },
-    {
-      'id': 'content_003',
-      'title': 'Draft Artikel Baru: Pentingnya Literasi Digital',
-      'publish_date': DateTime(2023, 10, 26),
-      'status': 'Draf',
-    },
-    {
-      'id': 'content_004',
-      'title': 'Artikel Lama: Info Bantuan Covid-19',
-      'publish_date': DateTime(2022, 5, 10),
-      'status': 'Diarsip',
-    },
-    // Add more placeholder content
-  ];
-
-  List<Map<String, dynamic>> _filteredContent = [];
+  final AdminContentService _contentService = AdminContentService();
+  
+  List<ContentModel> _allContent = [];
+  List<ContentModel> _filteredContent = [];
   String _searchText = '';
   String? _selectedStatusFilter;
+  bool _isLoading = true;
+  String? _errorMessage;
 
-  // Placeholder filter options
   final List<String> _statuses = [
     'Semua Status',
     'Dipublikasikan',
@@ -57,26 +33,47 @@ class _AdminContentListPageState extends State<AdminContentListPage> {
   @override
   void initState() {
     super.initState();
-    _filteredContent = _allContent;
     _selectedStatusFilter = _statuses.first;
+    _loadContent();
+  }
+
+  Future<void> _loadContent() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final content = await _contentService.getAllContent();
+      setState(() {
+        _allContent = content;
+        _filteredContent = content;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Gagal memuat konten: ${e.toString()}';
+        _isLoading = false;
+      });
+    }
   }
 
   void _filterContent() {
-    List<Map<String, dynamic>> content =
-        _allContent.where((item) {
-          final titleLower = item['title'].toLowerCase();
-          final searchTextLower = _searchText.toLowerCase();
+    List<ContentModel> content = _allContent.where((item) {
+      final titleLower = item.title.toLowerCase();
+      final contentLower = item.content.toLowerCase();
+      final searchTextLower = _searchText.toLowerCase();
 
-          // Search filter
-          final searchMatch = titleLower.contains(searchTextLower);
+      // Search filter
+      final searchMatch = titleLower.contains(searchTextLower) || 
+                         contentLower.contains(searchTextLower);
 
-          // Status filter
-          final statusMatch =
-              _selectedStatusFilter == _statuses.first ||
-              item['status'] == _selectedStatusFilter;
+      // Status filter
+      final statusMatch = _selectedStatusFilter == _statuses.first ||
+          AdminContentService.getStatusDisplayName(item.status) == _selectedStatusFilter;
 
-          return searchMatch && statusMatch;
-        }).toList();
+      return searchMatch && statusMatch;
+    }).toList();
 
     setState(() {
       _filteredContent = content;
@@ -84,30 +81,61 @@ class _AdminContentListPageState extends State<AdminContentListPage> {
   }
 
   void _editContent(String contentId) {
-    // TODO: Navigate to Content Editor Page for editing
-    context.go(
-      '${RouteNames.adminContentEditor}/$contentId',
-    ); // Example with go_router parameter
+    context.go('${RouteNames.adminContentEditor}/$contentId');
   }
 
-  void _deleteContent(String contentId) {
-    // TODO: Implement delete content logic (show confirmation dialog, call API)
-    print('Attempting to delete content with ID: $contentId');
-    // Example: Remove from local list (for demonstration)
-    setState(() {
-      _allContent.removeWhere((content) => content['id'] == contentId);
-      _filterContent(); // Re-filter after deletion
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Content $contentId deleted (placeholder)')),
+  Future<void> _deleteContent(String contentId, String title) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Konfirmasi Hapus'),
+        content: Text('Apakah Anda yakin ingin menghapus konten "$title"?\n\nTindakan ini tidak dapat dibatalkan.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
     );
+
+    if (confirmed == true) {
+      setState(() {
+        _isLoading = true;
+      });
+
+      try {
+        final success = await _contentService.deleteContent(contentId);
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Konten berhasil dihapus')),
+          );
+          await _loadContent(); // Reload content
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Gagal menghapus konten')),
+          );
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${e.toString()}')),
+        );
+      } finally {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   void _addContent() {
-    // TODO: Navigate to Add Content Page (which redirects to Editor in 'new' mode)
-    context.go(
-      RouteNames.adminAddContent,
-    ); // Navigate to the add page (which uses the editor)
+    // Navigate directly to the content editor for new content
+    context.go(RouteNames.adminAddContent);
   }
 
   @override
@@ -117,20 +145,20 @@ class _AdminContentListPageState extends State<AdminContentListPage> {
         title: const Text('Manajemen Konten Edukasi'),
         backgroundColor: Colors.blue.shade700,
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _isLoading ? null : _loadContent,
+          ),
+        ],
       ),
-
-      drawer:
-          const AdminNavigationDrawer(), // Your Admin Navigation Drawer widget
-
+      drawer: const AdminNavigationDrawer(),
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              Colors.blue.shade100,
-              Colors.blue.shade200,
-            ], // Consistent gradient
+            colors: [Colors.blue.shade100, Colors.blue.shade200],
           ),
         ),
         child: Column(
@@ -179,13 +207,12 @@ class _AdminContentListPageState extends State<AdminContentListPage> {
                       ),
                     ),
                     value: _selectedStatusFilter,
-                    items:
-                        _statuses.map((String status) {
-                          return DropdownMenuItem<String>(
-                            value: status,
-                            child: Text(status),
-                          );
-                        }).toList(),
+                    items: _statuses.map((String status) {
+                      return DropdownMenuItem<String>(
+                        value: status,
+                        child: Text(status),
+                      );
+                    }).toList(),
                     onChanged: (newValue) {
                       setState(() {
                         _selectedStatusFilter = newValue;
@@ -198,19 +225,55 @@ class _AdminContentListPageState extends State<AdminContentListPage> {
             ),
             // Content List
             Expanded(
-              child: ListView.builder(
-                itemCount: _filteredContent.length,
-                itemBuilder: (context, index) {
-                  final content = _filteredContent[index];
-                  return AdminContentCardWidget(
-                    content: content,
-                    onEdit: () => _editContent(content['id']),
-                    onDelete: () => _deleteContent(content['id']),
-                  );
-                },
-              ),
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _errorMessage != null
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                              const SizedBox(height: 16),
+                              Text(_errorMessage!, textAlign: TextAlign.center),
+                              const SizedBox(height: 16),
+                              ElevatedButton(
+                                onPressed: _loadContent,
+                                child: const Text('Coba Lagi'),
+                              ),
+                            ],
+                          ),
+                        )
+                      : _filteredContent.isEmpty
+                          ? const Center(
+                              child: Text(
+                                'Tidak ada konten yang ditemukan',
+                                style: TextStyle(fontSize: 16),
+                              ),
+                            )
+                          : RefreshIndicator(
+                              onRefresh: _loadContent,
+                              child: ListView.builder(
+                                itemCount: _filteredContent.length,
+                                itemBuilder: (context, index) {
+                                  final content = _filteredContent[index];
+                                  return AdminContentCardWidget(
+                                    content: {
+                                      'id': content.id,
+                                      'title': content.title,
+                                      'status': AdminContentService.getStatusDisplayName(content.status),
+                                      'publish_date': content.publishedAt ?? content.updatedAt,
+                                      'author': content.authorName,
+                                      'view_count': content.viewCount,
+                                      'image_url': content.imageUrl,
+                                    },
+                                    onEdit: () => _editContent(content.id),
+                                    onDelete: () => _deleteContent(content.id, content.title),
+                                  );
+                                },
+                              ),
+                            ),
             ),
-            // "Tambah Artikel Baru" Button
+            // Add Content Button
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: ElevatedButton(
@@ -227,7 +290,14 @@ class _AdminContentListPageState extends State<AdminContentListPage> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                child: const Center(child: Text('Tambah Artikel Baru')),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.add),
+                    SizedBox(width: 8),
+                    Text('Tambah Artikel Baru'),
+                  ],
+                ),
               ),
             ),
           ],

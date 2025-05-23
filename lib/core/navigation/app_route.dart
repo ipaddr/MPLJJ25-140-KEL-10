@@ -33,7 +33,6 @@ import 'package:socio_care/features/admin/program_management/presentation/pages/
 import 'package:socio_care/features/admin/submission_management/presentation/pages/admin_submission_list_page.dart';
 import 'package:socio_care/features/admin/submission_management/presentation/pages/admin_submission_detail_page.dart';
 import 'package:socio_care/features/admin/education_content/presentation/pages/admin_content_list_page.dart';
-import 'package:socio_care/features/admin/education_content/presentation/pages/admin_add_content_page.dart';
 import 'package:socio_care/features/admin/education_content/presentation/pages/admin_content_editor_page.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>(
@@ -163,12 +162,17 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: RouteNames.adminOtp,
       name: 'admin-otp',
-      builder: (context, state) => const AdminOtpPage(),
+      builder:
+          (context, state) =>
+              AdminOtpPage(resetData: state.extra as Map<String, dynamic>),
     ),
     GoRoute(
       path: RouteNames.adminNewPassword,
       name: 'admin-new-password',
-      builder: (context, state) => const AdminNewPasswordPage(),
+      builder:
+          (context, state) => AdminNewPasswordPage(
+            resetData: state.extra as Map<String, dynamic>,
+          ),
     ),
     GoRoute(
       path: RouteNames.adminDashboard,
@@ -234,7 +238,7 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: RouteNames.adminAddContent,
       name: 'admin-add-content',
-      builder: (context, state) => const AdminAddContentPage(),
+      builder: (context, state) => const AdminContentEditorPage(),
     ),
     GoRoute(
       path: '${RouteNames.adminContentEditor}/:contentId',

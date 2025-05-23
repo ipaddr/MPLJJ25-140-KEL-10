@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "373943872282",
+    "project_id": "socio-care",
+    "storage_bucket": "socio-care.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:373943872282:android:58535f706287eb04795aa3",
+        "android_client_info": {
+          "package_name": "com.example.socio_care"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB_kgtIoWM10pmEfJd8TUBFwOcQL19BjBM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

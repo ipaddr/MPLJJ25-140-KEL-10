@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:socio_care/core/navigation/route_names.dart'; // Adjust if needed
+import 'package:socio_care/core/navigation/route_names.dart';
 import 'package:socio_care/features/admin/core_admin/presentation/widgets/admin_navigation_drawer.dart';
 import '../widgets/admin_program_card_widget.dart';
+import '../../data/admin_program_service.dart';
 
 class AdminProgramListPage extends StatefulWidget {
   const AdminProgramListPage({super.key});
@@ -12,88 +13,81 @@ class AdminProgramListPage extends StatefulWidget {
 }
 
 class _AdminProgramListPageState extends State<AdminProgramListPage> {
-  // Placeholder data - replace with actual data fetching logic
-  final List<Map<String, dynamic>> _allPrograms = [
-    {
-      'id': 'prog_001',
-      'nama_program': 'Beasiswa Pendidikan Anak',
-      'kategori': 'Pendidikan',
-      'status': 'Aktif',
-      'jumlah_pengajuan': 150,
-    },
-    {
-      'id': 'prog_002',
-      'nama_program': 'Bantuan Kesehatan Lansia',
-      'kategori': 'Kesehatan',
-      'status': 'Aktif',
-      'jumlah_pengajuan': 80,
-    },
-    {
-      'id': 'prog_003',
-      'nama_program': 'Pelatihan Keterampilan Digital',
-      'kategori': 'Pemberdayaan',
-      'status': 'Selesai',
-      'jumlah_pengajuan': 200,
-    },
-    {
-      'id': 'prog_004',
-      'nama_program': 'Bantuan Pangan Keluarga Pra-Sejahtera',
-      'kategori': 'Sosial',
-      'status': 'Ditutup',
-      'jumlah_pengajuan': 300,
-    },
-    // Add more placeholder programs
-  ];
-
+  final AdminProgramService _programService = AdminProgramService();
+  
+  List<Map<String, dynamic>> _allPrograms = [];
   List<Map<String, dynamic>> _filteredPrograms = [];
   String _searchText = '';
   String? _selectedCategoryFilter;
   String? _selectedStatusFilter;
+  bool _isLoading = true;
+  String? _errorMessage;
 
-  // Placeholder filter options
+  // Filter options
   final List<String> _categories = [
     'Semua Kategori',
-    'Pendidikan',
     'Kesehatan',
-    'Pemberdayaan',
-    'Sosial',
+    'Pendidikan',
+    'Modal Usaha',
+    'Makanan Pokok',
   ];
+  
   final List<String> _statuses = [
     'Semua Status',
-    'Aktif',
-    'Selesai',
-    'Ditutup',
+    'active',
+    'inactive',
+    'closed',
+    'upcoming',
   ];
 
   @override
   void initState() {
     super.initState();
-    _filteredPrograms = _allPrograms;
     _selectedCategoryFilter = _categories.first;
     _selectedStatusFilter = _statuses.first;
+    _loadPrograms();
+  }
+
+  Future<void> _loadPrograms() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final programs = await _programService.getAllPrograms();
+      setState(() {
+        _allPrograms = programs;
+        _filteredPrograms = programs;
+        _isLoading = false;
+      });
+      _filterPrograms();
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Gagal memuat data program: ${e.toString()}';
+        _isLoading = false;
+      });
+    }
   }
 
   void _filterPrograms() {
-    List<Map<String, dynamic>> programs =
-        _allPrograms.where((program) {
-          final nameLower = program['nama_program'].toLowerCase();
-          final searchTextLower = _searchText.toLowerCase();
+    List<Map<String, dynamic>> programs = _allPrograms.where((program) {
+      final nameLower = (program['programName'] as String? ?? '').toLowerCase();
+      final searchTextLower = _searchText.toLowerCase();
 
-          // Search filter
-          final searchMatch = nameLower.contains(searchTextLower);
+      // Search filter
+      final searchMatch = nameLower.contains(searchTextLower);
 
-          // Category filter
-          final categoryMatch =
-              _selectedCategoryFilter == _categories.first ||
-              program['kategori'] == _selectedCategoryFilter;
+      // Category filter
+      final categoryMatch = _selectedCategoryFilter == _categories.first ||
+          program['category'] == _selectedCategoryFilter;
 
-          // Status filter
-          final statusMatch =
-              _selectedStatusFilter == _statuses.first ||
-              program['status'] == _selectedStatusFilter;
+      // Status filter
+      final statusMatch = _selectedStatusFilter == _statuses.first ||
+          program['status'] == _selectedStatusFilter;
 
-          return searchMatch && categoryMatch && statusMatch;
-        }).toList();
+      return searchMatch && categoryMatch && statusMatch;
+    }).toList();
 
     setState(() {
       _filteredPrograms = programs;
@@ -101,35 +95,79 @@ class _AdminProgramListPageState extends State<AdminProgramListPage> {
   }
 
   void _viewProgramDetail(String programId) {
-    // TODO: Navigate to Program Detail Page, passing the program ID
-    context.go(
-      '${RouteNames.adminProgramDetail}/$programId',
-    ); // Example with go_router parameter
+    context.go('${RouteNames.adminProgramDetail}/$programId');
   }
 
   void _editProgram(String programId) {
-    // TODO: Navigate to Edit Program Page (same as detail page for editing)
-    context.go(
-      '${RouteNames.adminProgramDetail}/$programId',
-    ); // Example with go_router parameter
+    context.go('${RouteNames.adminProgramDetail}/$programId');
   }
 
-  void _deleteProgram(String programId) {
-    // TODO: Implement delete program logic (show confirmation dialog, call API)
-    print('Attempting to delete program with ID: $programId');
-    // Example: Remove from local list (for demonstration)
-    setState(() {
-      _allPrograms.removeWhere((program) => program['id'] == programId);
-      _filterPrograms(); // Re-filter after deletion
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Program $programId deleted (placeholder)')),
+  Future<void> _deleteProgram(String programId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Konfirmasi Hapus'),
+        content: const Text('Apakah Anda yakin ingin menghapus program ini?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
     );
+
+    if (confirmed == true) {
+      setState(() {
+        _isLoading = true;
+      });
+
+      try {
+        final success = await _programService.deleteProgram(programId);
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Program berhasil dihapus')),
+          );
+          await _loadPrograms(); // Reload programs
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Gagal menghapus program')),
+          );
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${e.toString()}')),
+        );
+      } finally {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   void _addProgram() {
-    // TODO: Navigate to Add Program Page
     context.go(RouteNames.adminAddProgram);
+  }
+
+  String _getStatusDisplayName(String status) {
+    switch (status) {
+      case 'active':
+        return 'Aktif';
+      case 'inactive':
+        return 'Tidak Aktif';
+      case 'closed':
+        return 'Ditutup';
+      case 'upcoming':
+        return 'Akan Datang';
+      default:
+        return status;
+    }
   }
 
   @override
@@ -139,18 +177,20 @@ class _AdminProgramListPageState extends State<AdminProgramListPage> {
         title: const Text('Manajemen Program Bantuan'),
         backgroundColor: Colors.blue.shade700,
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _isLoading ? null : _loadPrograms,
+          ),
+        ],
       ),
-      drawer:
-          const AdminNavigationDrawer(), // Your Admin Navigation Drawer widget
+      drawer: const AdminNavigationDrawer(),
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              Colors.blue.shade100,
-              Colors.blue.shade200,
-            ], // Consistent gradient
+            colors: [Colors.blue.shade100, Colors.blue.shade200],
           ),
         ),
         child: Column(
@@ -183,7 +223,7 @@ class _AdminProgramListPageState extends State<AdminProgramListPage> {
                     },
                   ),
                   const SizedBox(height: 16.0),
-                  // Filters (Category and Status)
+                  // Filters
                   Row(
                     children: [
                       // Category Filter
@@ -203,13 +243,12 @@ class _AdminProgramListPageState extends State<AdminProgramListPage> {
                             ),
                           ),
                           value: _selectedCategoryFilter,
-                          items:
-                              _categories.map((String category) {
-                                return DropdownMenuItem<String>(
-                                  value: category,
-                                  child: Text(category),
-                                );
-                              }).toList(),
+                          items: _categories.map((String category) {
+                            return DropdownMenuItem<String>(
+                              value: category,
+                              child: Text(category),
+                            );
+                          }).toList(),
                           onChanged: (newValue) {
                             setState(() {
                               _selectedCategoryFilter = newValue;
@@ -236,13 +275,14 @@ class _AdminProgramListPageState extends State<AdminProgramListPage> {
                             ),
                           ),
                           value: _selectedStatusFilter,
-                          items:
-                              _statuses.map((String status) {
-                                return DropdownMenuItem<String>(
-                                  value: status,
-                                  child: Text(status),
-                                );
-                              }).toList(),
+                          items: _statuses.map((String status) {
+                            return DropdownMenuItem<String>(
+                              value: status,
+                              child: Text(status == 'Semua Status' 
+                                  ? status 
+                                  : _getStatusDisplayName(status)),
+                            );
+                          }).toList(),
                           onChanged: (newValue) {
                             setState(() {
                               _selectedStatusFilter = newValue;
@@ -256,22 +296,56 @@ class _AdminProgramListPageState extends State<AdminProgramListPage> {
                 ],
               ),
             ),
-            // Program List
+            // Content
             Expanded(
-              child: ListView.builder(
-                itemCount: _filteredPrograms.length,
-                itemBuilder: (context, index) {
-                  final program = _filteredPrograms[index];
-                  return AdminProgramCardWidget(
-                    program: program,
-                    onViewDetail: () => _viewProgramDetail(program['id']),
-                    onEdit: () => _editProgram(program['id']),
-                    onDelete: () => _deleteProgram(program['id']),
-                  );
-                },
-              ),
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _errorMessage != null
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                              const SizedBox(height: 16),
+                              Text(_errorMessage!, textAlign: TextAlign.center),
+                              const SizedBox(height: 16),
+                              ElevatedButton(
+                                onPressed: _loadPrograms,
+                                child: const Text('Coba Lagi'),
+                              ),
+                            ],
+                          ),
+                        )
+                      : _filteredPrograms.isEmpty
+                          ? const Center(
+                              child: Text(
+                                'Tidak ada program yang ditemukan',
+                                style: TextStyle(fontSize: 16),
+                              ),
+                            )
+                          : RefreshIndicator(
+                              onRefresh: _loadPrograms,
+                              child: ListView.builder(
+                                itemCount: _filteredPrograms.length,
+                                itemBuilder: (context, index) {
+                                  final program = _filteredPrograms[index];
+                                  return AdminProgramCardWidget(
+                                    program: {
+                                      'id': program['id'],
+                                      'nama_program': program['programName'],
+                                      'kategori': program['category'],
+                                      'status': _getStatusDisplayName(program['status']),
+                                      'jumlah_pengajuan': program['totalApplications'],
+                                    },
+                                    onViewDetail: () => _viewProgramDetail(program['id']),
+                                    onEdit: () => _editProgram(program['id']),
+                                    onDelete: () => _deleteProgram(program['id']),
+                                  );
+                                },
+                              ),
+                            ),
             ),
-            // "Tambah Program Baru" Button
+            // Add Program Button
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: ElevatedButton(

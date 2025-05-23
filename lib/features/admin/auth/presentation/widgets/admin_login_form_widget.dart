@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:socio_care/core/navigation/route_names.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AdminLoginFormWidget extends StatefulWidget {
   const AdminLoginFormWidget({super.key});
@@ -11,6 +13,7 @@ class AdminLoginFormWidget extends StatefulWidget {
 
 class _AdminLoginFormWidgetState extends State<AdminLoginFormWidget> {
   bool _isPasswordVisible = false;
+  bool _isLoading = false;
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
@@ -22,12 +25,79 @@ class _AdminLoginFormWidgetState extends State<AdminLoginFormWidget> {
     super.dispose();
   }
 
-  void _login() {
+  Future<void> _login() async {
     if (_formKey.currentState!.validate()) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Processing Admin Login')));
-      context.go(RouteNames.adminDashboard);
+      setState(() {
+        _isLoading = true;
+      });
+      
+      try {
+        // 1. Authenticate with Firebase
+        final userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+        );
+        
+        // 2. Check if user is an admin by querying Firestore
+        final adminDoc = await FirebaseFirestore.instance
+            .collection('admins')
+            .doc(userCredential.user!.uid)
+            .get();
+        
+        if (!adminDoc.exists) {
+          // User is not an admin
+          await FirebaseAuth.instance.signOut();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Anda tidak memiliki akses admin'))
+          );
+          setState(() {
+            _isLoading = false;
+          });
+          return;
+        }
+        
+        // 3. Update last login time
+        await FirebaseFirestore.instance
+            .collection('admins')
+            .doc(userCredential.user!.uid)
+            .update({
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+        
+        // 4. Navigate to admin dashboard
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Login berhasil'))
+          );
+          context.go(RouteNames.adminDashboard);
+        }
+      } on FirebaseAuthException catch (e) {
+        String errorMessage = 'Terjadi kesalahan saat login.';
+        
+        if (e.code == 'user-not-found') {
+          errorMessage = 'Email tidak terdaftar.';
+        } else if (e.code == 'wrong-password') {
+          errorMessage = 'Password salah.';
+        } else if (e.code == 'invalid-email') {
+          errorMessage = 'Format email tidak valid.';
+        } else if (e.code == 'user-disabled') {
+          errorMessage = 'Akun ini telah dinonaktifkan.';
+        }
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(errorMessage))
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${e.toString()}'))
+        );
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
     }
   }
 
@@ -60,7 +130,6 @@ class _AdminLoginFormWidgetState extends State<AdminLoginFormWidget> {
               if (value == null || value.isEmpty) {
                 return 'Email tidak boleh kosong';
               }
-              // Add basic email format validation if needed
               if (!value.contains('@')) {
                 return 'Masukkan email yang valid';
               }
@@ -105,7 +174,7 @@ class _AdminLoginFormWidgetState extends State<AdminLoginFormWidget> {
           ),
           const SizedBox(height: 24.0),
           ElevatedButton(
-            onPressed: _login,
+            onPressed: _isLoading ? null : _login,
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF0066CC),
               foregroundColor: Colors.white,
@@ -122,7 +191,9 @@ class _AdminLoginFormWidgetState extends State<AdminLoginFormWidget> {
                 fontWeight: FontWeight.normal,
               ),
             ),
-            child: const Text('Masuk Admin'),
+            child: _isLoading 
+                ? const CircularProgressIndicator(color: Colors.white)
+                : const Text('Masuk Admin'),
           ),
         ],
       ),

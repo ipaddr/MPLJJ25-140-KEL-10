@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../../core/navigation/route_names.dart';
 
 class UserBottomNavigationBar extends StatelessWidget {
   final int selectedIndex;

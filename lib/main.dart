@@ -1,7 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:socio_care/core/navigation/app_route.dart';
+import 'firebase_options.dart';
 
-void main() {
+void main() async {
+  // Ensure Flutter is initialized before using platform channels
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize Firebase with the default options
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  
   runApp(const MyApp());
 }
 

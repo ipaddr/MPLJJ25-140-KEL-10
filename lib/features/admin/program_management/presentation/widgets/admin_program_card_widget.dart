@@ -18,10 +18,12 @@ class AdminProgramCardWidget extends StatelessWidget {
     switch (status) {
       case 'Aktif':
         return Colors.green;
-      case 'Selesai':
+      case 'Tidak Aktif':
         return Colors.orange;
       case 'Ditutup':
         return Colors.red;
+      case 'Akan Datang':
+        return Colors.blue;
       default:
         return Colors.grey;
     }
@@ -29,7 +31,7 @@ class AdminProgramCardWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final statusColor = _getStatusColor(program['status']);
+    final statusColor = _getStatusColor(program['status'] ?? 'Unknown');
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
@@ -44,15 +46,19 @@ class AdminProgramCardWidget extends StatelessWidget {
             Text(
               program['nama_program'] ?? 'N/A',
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 8.0),
             // Category and Status
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Kategori: ${program['kategori'] ?? 'N/A'}',
-                  style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
+                Expanded(
+                  child: Text(
+                    'Kategori: ${program['kategori'] ?? 'N/A'}',
+                    style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
+                  ),
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -68,7 +74,7 @@ class AdminProgramCardWidget extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 12,
                       color: statusColor,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
@@ -83,8 +89,7 @@ class AdminProgramCardWidget extends StatelessWidget {
             const SizedBox(height: 12.0),
             // Action Buttons
             Row(
-              mainAxisAlignment:
-                  MainAxisAlignment.end, // Align buttons to the right
+              mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 IconButton(
                   icon: const Icon(Icons.visibility, size: 20.0),
