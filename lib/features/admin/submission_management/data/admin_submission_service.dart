@@ -22,9 +22,11 @@ class AdminSubmissionService {
   }
 
   // Safe parsing for supporting documents
-  static List<Map<String, dynamic>> _safeParseSupportingDocuments(dynamic value) {
+  static List<Map<String, dynamic>> _safeParseSupportingDocuments(
+    dynamic value,
+  ) {
     if (value == null) return [];
-    
+
     if (value is List) {
       return value.map((doc) {
         if (doc is Map<String, dynamic>) {
@@ -56,7 +58,7 @@ class AdminSubmissionService {
         }
       }).toList();
     }
-    
+
     return [];
   }
 
@@ -107,11 +109,16 @@ class AdminSubmissionService {
           'userName': _safeParseString(data['userName']),
           'userEmail': _safeParseString(data['userEmail']),
           'submissionDate': data['submissionDate'] as Timestamp?,
-          'status': _safeParseString(data['status']).isEmpty ? 'Baru' : _safeParseString(data['status']),
+          'status':
+              _safeParseString(data['status']).isEmpty
+                  ? 'Baru'
+                  : _safeParseString(data['status']),
           'notes': _safeParseString(data['notes']),
           'reviewedBy': data['reviewedBy'],
           'reviewDate': data['reviewDate'] as Timestamp?,
-          'supportingDocuments': _safeParseSupportingDocuments(data['supportingDocuments']),
+          'supportingDocuments': _safeParseSupportingDocuments(
+            data['supportingDocuments'],
+          ),
         };
       }).toList();
     } catch (e) {
@@ -123,7 +130,8 @@ class AdminSubmissionService {
   // Get submission by ID with detailed information
   Future<Map<String, dynamic>?> getSubmissionById(String submissionId) async {
     try {
-      final doc = await _firestore.collection('applications').doc(submissionId).get();
+      final doc =
+          await _firestore.collection('applications').doc(submissionId).get();
 
       if (!doc.exists) {
         return null;
@@ -138,7 +146,8 @@ class AdminSubmissionService {
       final userData = userDoc.exists ? userDoc.data()! : {};
 
       // Get program details
-      final programDoc = await _firestore.collection('programs').doc(programId).get();
+      final programDoc =
+          await _firestore.collection('programs').doc(programId).get();
       final programData = programDoc.exists ? programDoc.data()! : {};
 
       return {
@@ -149,11 +158,16 @@ class AdminSubmissionService {
         'userName': _safeParseString(data['userName']),
         'userEmail': _safeParseString(data['userEmail']),
         'submissionDate': data['submissionDate'] as Timestamp?,
-        'status': _safeParseString(data['status']).isEmpty ? 'Baru' : _safeParseString(data['status']),
+        'status':
+            _safeParseString(data['status']).isEmpty
+                ? 'Baru'
+                : _safeParseString(data['status']),
         'notes': _safeParseString(data['notes']),
         'reviewedBy': data['reviewedBy'],
         'reviewDate': data['reviewDate'] as Timestamp?,
-        'supportingDocuments': _safeParseSupportingDocuments(data['supportingDocuments']),
+        'supportingDocuments': _safeParseSupportingDocuments(
+          data['supportingDocuments'],
+        ),
         'userDetails': {
           'fullName': _safeParseString(userData['fullName']),
           'email': _safeParseString(userData['email']),
@@ -171,7 +185,9 @@ class AdminSubmissionService {
           'organizer': _safeParseString(programData['organizer']),
           'category': _safeParseString(programData['category']),
           'description': _safeParseString(programData['description']),
-          'termsAndConditions': _safeParseString(programData['termsAndConditions']),
+          'termsAndConditions': _safeParseString(
+            programData['termsAndConditions'],
+          ),
           'status': _safeParseString(programData['status']),
         },
       };
@@ -186,6 +202,8 @@ class AdminSubmissionService {
     required String submissionId,
     required String newStatus,
     String? notes,
+    required String status,
+    String? reviewNotes,
   }) async {
     try {
       final currentUser = _auth.currentUser;
@@ -204,10 +222,14 @@ class AdminSubmissionService {
         updateData['notes'] = notes;
       }
 
-      await _firestore.collection('applications').doc(submissionId).update(updateData);
+      await _firestore
+          .collection('applications')
+          .doc(submissionId)
+          .update(updateData);
 
       // Update total applications count in the program
-      final submissionDoc = await _firestore.collection('applications').doc(submissionId).get();
+      final submissionDoc =
+          await _firestore.collection('applications').doc(submissionId).get();
       if (submissionDoc.exists) {
         final programId = _safeParseString(submissionDoc.data()!['programId']);
         if (programId.isNotEmpty) {
@@ -231,6 +253,7 @@ class AdminSubmissionService {
       submissionId: submissionId,
       newStatus: 'Disetujui',
       notes: notes,
+      status: '',
     );
   }
 
@@ -243,6 +266,7 @@ class AdminSubmissionService {
       submissionId: submissionId,
       newStatus: 'Ditolak',
       notes: notes,
+      status: '',
     );
   }
 
@@ -260,7 +284,14 @@ class AdminSubmissionService {
       }
 
       final result = ['Semua Program', ...programNames.toList()];
-      result.sort((a, b) => a == 'Semua Program' ? -1 : b == 'Semua Program' ? 1 : a.compareTo(b));
+      result.sort(
+        (a, b) =>
+            a == 'Semua Program'
+                ? -1
+                : b == 'Semua Program'
+                ? 1
+                : a.compareTo(b),
+      );
       return result;
     } catch (e) {
       print('Error getting program names: $e');
@@ -272,10 +303,26 @@ class AdminSubmissionService {
   Future<Map<String, int>> getSubmissionsCountByStatus() async {
     try {
       final results = await Future.wait([
-        _firestore.collection('applications').where('status', isEqualTo: 'Baru').count().get(),
-        _firestore.collection('applications').where('status', isEqualTo: 'Diproses').count().get(),
-        _firestore.collection('applications').where('status', isEqualTo: 'Disetujui').count().get(),
-        _firestore.collection('applications').where('status', isEqualTo: 'Ditolak').count().get(),
+        _firestore
+            .collection('applications')
+            .where('status', isEqualTo: 'Baru')
+            .count()
+            .get(),
+        _firestore
+            .collection('applications')
+            .where('status', isEqualTo: 'Diproses')
+            .count()
+            .get(),
+        _firestore
+            .collection('applications')
+            .where('status', isEqualTo: 'Disetujui')
+            .count()
+            .get(),
+        _firestore
+            .collection('applications')
+            .where('status', isEqualTo: 'Ditolak')
+            .count()
+            .get(),
       ]);
 
       return {
@@ -294,12 +341,13 @@ class AdminSubmissionService {
   Future<void> _updateProgramApplicationCount(String programId) async {
     try {
       if (programId.isEmpty) return;
-      
-      final applicationsCount = await _firestore
-          .collection('applications')
-          .where('programId', isEqualTo: programId)
-          .count()
-          .get();
+
+      final applicationsCount =
+          await _firestore
+              .collection('applications')
+              .where('programId', isEqualTo: programId)
+              .count()
+              .get();
 
       await _firestore.collection('programs').doc(programId).update({
         'totalApplications': applicationsCount.count ?? 0,
@@ -314,7 +362,8 @@ class AdminSubmissionService {
   Future<bool> deleteSubmission(String submissionId) async {
     try {
       // Get submission data first to update program count
-      final submissionDoc = await _firestore.collection('applications').doc(submissionId).get();
+      final submissionDoc =
+          await _firestore.collection('applications').doc(submissionId).get();
       if (submissionDoc.exists) {
         final programId = _safeParseString(submissionDoc.data()!['programId']);
 
@@ -336,13 +385,16 @@ class AdminSubmissionService {
   }
 
   // Get recent submissions (for dashboard)
-  Future<List<Map<String, dynamic>>> getRecentSubmissions({int limit = 10}) async {
+  Future<List<Map<String, dynamic>>> getRecentSubmissions({
+    int limit = 10,
+  }) async {
     try {
-      final querySnapshot = await _firestore
-          .collection('applications')
-          .orderBy('submissionDate', descending: true)
-          .limit(limit)
-          .get();
+      final querySnapshot =
+          await _firestore
+              .collection('applications')
+              .orderBy('submissionDate', descending: true)
+              .limit(limit)
+              .get();
 
       return querySnapshot.docs.map((doc) {
         final data = doc.data();
@@ -350,7 +402,10 @@ class AdminSubmissionService {
           'id': doc.id,
           'userName': _safeParseString(data['userName']),
           'programName': _safeParseString(data['programName']),
-          'status': _safeParseString(data['status']).isEmpty ? 'Baru' : _safeParseString(data['status']),
+          'status':
+              _safeParseString(data['status']).isEmpty
+                  ? 'Baru'
+                  : _safeParseString(data['status']),
           'submissionDate': data['submissionDate'] as Timestamp?,
         };
       }).toList();

@@ -4,6 +4,7 @@ class ContentModel {
   final String id;
   final String title;
   final String content;
+  final String? description; // Added description field
   final String status;
   final String? imageUrl;
   final String authorId;
@@ -13,11 +14,14 @@ class ContentModel {
   final DateTime? publishedAt;
   final int viewCount;
   final List<String> tags;
+  final String type; // Added type field (Artikel, Video, Infografis, etc.)
+  final String category; // Added category field (Umum, Kesehatan, Pendidikan, etc.)
 
   ContentModel({
     required this.id,
     required this.title,
     required this.content,
+    this.description,
     required this.status,
     this.imageUrl,
     required this.authorId,
@@ -27,16 +31,19 @@ class ContentModel {
     this.publishedAt,
     this.viewCount = 0,
     this.tags = const [],
+    this.type = 'Artikel',
+    this.category = 'Umum',
   });
 
   // Convert from Firestore document
   factory ContentModel.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
-
+    
     return ContentModel(
       id: doc.id,
       title: data['title'] ?? '',
       content: data['content'] ?? '',
+      description: data['description'],
       status: data['status'] ?? 'draft',
       imageUrl: data['imageUrl'],
       authorId: data['authorId'] ?? '',
@@ -46,6 +53,8 @@ class ContentModel {
       publishedAt: (data['publishedAt'] as Timestamp?)?.toDate(),
       viewCount: data['viewCount'] ?? 0,
       tags: List<String>.from(data['tags'] ?? []),
+      type: data['type'] ?? 'Artikel',
+      category: data['category'] ?? 'Umum',
     );
   }
 
@@ -54,23 +63,27 @@ class ContentModel {
     return {
       'title': title,
       'content': content,
+      'description': description,
       'status': status,
       'imageUrl': imageUrl,
       'authorId': authorId,
       'authorName': authorName,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
-      'publishedAt':
-          publishedAt != null ? Timestamp.fromDate(publishedAt!) : null,
+      'publishedAt': publishedAt != null ? Timestamp.fromDate(publishedAt!) : null,
       'viewCount': viewCount,
       'tags': tags,
+      'type': type,
+      'category': category,
     };
   }
 
-  // Create a copy with updated fields
+  // Copy with method for updates
   ContentModel copyWith({
+    String? id,
     String? title,
     String? content,
+    String? description,
     String? status,
     String? imageUrl,
     String? authorId,
@@ -80,11 +93,14 @@ class ContentModel {
     DateTime? publishedAt,
     int? viewCount,
     List<String>? tags,
+    String? type,
+    String? category,
   }) {
     return ContentModel(
-      id: id,
+      id: id ?? this.id,
       title: title ?? this.title,
       content: content ?? this.content,
+      description: description ?? this.description,
       status: status ?? this.status,
       imageUrl: imageUrl ?? this.imageUrl,
       authorId: authorId ?? this.authorId,
@@ -94,6 +110,8 @@ class ContentModel {
       publishedAt: publishedAt ?? this.publishedAt,
       viewCount: viewCount ?? this.viewCount,
       tags: tags ?? this.tags,
+      type: type ?? this.type,
+      category: category ?? this.category,
     );
   }
 }

@@ -72,6 +72,37 @@ class AdminProgramService {
     }
   }
 
+  // Get applications by program ID - ADDED MISSING METHOD
+  Future<List<Map<String, dynamic>>> getApplicationsByProgramId(String programId) async {
+    try {
+      final querySnapshot = await _firestore
+          .collection('applications')
+          .where('programId', isEqualTo: programId)
+          .orderBy('submittedAt', descending: true)
+          .get();
+
+      return querySnapshot.docs.map((doc) {
+        final data = doc.data();
+        return {
+          'id': doc.id,
+          'userId': data['userId'] ?? '',
+          'programId': data['programId'] ?? '',
+          'userName': data['userName'] ?? '',
+          'userEmail': data['userEmail'] ?? '',
+          'status': data['status'] ?? 'pending',
+          'submittedAt': data['submittedAt'] as Timestamp?,
+          'reviewedAt': data['reviewedAt'] as Timestamp?,
+          'reviewedBy': data['reviewedBy'] ?? '',
+          'notes': data['notes'] ?? '',
+          'documents': data['documents'] ?? [],
+        };
+      }).toList();
+    } catch (e) {
+      print('Error getting applications by program ID: $e');
+      return [];
+    }
+  }
+
   // Create new program
   Future<String?> createProgram({
     required String programName,

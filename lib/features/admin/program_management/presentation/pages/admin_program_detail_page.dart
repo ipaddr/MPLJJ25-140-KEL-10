@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:socio_care/core/navigation/route_names.dart';
 import '../../data/admin_program_service.dart';
-import 'dart:io';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AdminProgramDetailPage extends StatefulWidget {
   final String programId;
@@ -14,525 +13,859 @@ class AdminProgramDetailPage extends StatefulWidget {
   State<AdminProgramDetailPage> createState() => _AdminProgramDetailPageState();
 }
 
-class _AdminProgramDetailPageState extends State<AdminProgramDetailPage> {
+class _AdminProgramDetailPageState extends State<AdminProgramDetailPage> 
+    with TickerProviderStateMixin {
   final AdminProgramService _programService = AdminProgramService();
-  final _formKey = GlobalKey<FormState>();
   
-  final TextEditingController _namaProgramController = TextEditingController();
-  final TextEditingController _organizerController = TextEditingController();
-  final TextEditingController _targetAudienceController = TextEditingController();
-  final TextEditingController _deskripsiController = TextEditingController();
-  final TextEditingController _syaratKetentuanController = TextEditingController();
-  final TextEditingController _caraPendaftaranController = TextEditingController();
-  
-  String? _selectedCategory;
-  String? _selectedStatus;
-  File? _selectedImage;
-  String? _existingImageUrl;
-  bool _isLoading = true;
-  bool _isSaving = false;
   Map<String, dynamic>? _programData;
-
-  final List<String> _categories = [
-    'Kesehatan',
-    'Pendidikan',
-    'Modal Usaha',
-    'Makanan Pokok',
-  ];
-
-  final List<String> _statuses = [
-    'active',
-    'inactive',
-    'closed',
-    'upcoming',
-  ];
+  List<Map<String, dynamic>> _applications = [];
+  bool _isLoading = true;
+  String? _errorMessage;
+  
+  late AnimationController _fadeController;
+  late AnimationController _slideController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
 
   @override
   void initState() {
     super.initState();
+    _setupAnimations();
     _loadProgramData();
+  }
+
+  void _setupAnimations() {
+    _fadeController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    _slideController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
+    );
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.3),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _slideController, curve: Curves.easeOut));
   }
 
   @override
   void dispose() {
-    _namaProgramController.dispose();
-    _organizerController.dispose();
-    _targetAudienceController.dispose();
-    _deskripsiController.dispose();
-    _syaratKetentuanController.dispose();
-    _caraPendaftaranController.dispose();
+    _fadeController.dispose();
+    _slideController.dispose();
     super.dispose();
   }
 
   Future<void> _loadProgramData() async {
-    setState(() {
-      _isLoading = true;
-    });
-
     try {
       final programData = await _programService.getProgramById(widget.programId);
-      
-      if (programData != null) {
-        // Debug print to see what we get from Firebase
-        print('Program data from Firebase: $programData');
-        
+      final applications = await _programService.getApplicationsByProgramId(widget.programId);
+
+      if (programData != null && mounted) {
         setState(() {
           _programData = programData;
-          _namaProgramController.text = programData['programName'] ?? '';
-          _organizerController.text = programData['organizer'] ?? '';
-          _targetAudienceController.text = programData['targetAudience'] ?? '';
-          _deskripsiController.text = programData['description'] ?? '';
-          _syaratKetentuanController.text = programData['termsAndConditions'] ?? '';
-          _caraPendaftaranController.text = programData['registrationGuide'] ?? '';
-          
-          // Safely set category and status with validation
-          final categoryFromFirebase = programData['category']?.toString() ?? '';
-          if (_categories.contains(categoryFromFirebase)) {
-            _selectedCategory = categoryFromFirebase;
-          } else {
-            print('Warning: Category "$categoryFromFirebase" not found in available categories');
-            _selectedCategory = _categories.first; // Set to first category as default
-          }
-          
-          final statusFromFirebase = programData['status']?.toString() ?? '';
-          if (_statuses.contains(statusFromFirebase)) {
-            _selectedStatus = statusFromFirebase;
-          } else {
-            print('Warning: Status "$statusFromFirebase" not found in available statuses');
-            _selectedStatus = _statuses.first; // Set to first status as default
-          }
-          
-          _existingImageUrl = programData['imageUrl']?.toString() ?? '';
+          _applications = applications;
           _isLoading = false;
         });
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Program tidak ditemukan')),
-        );
-        context.go(RouteNames.adminProgramList);
+        _fadeController.forward();
+        _slideController.forward();
+      } else if (mounted) {
+        setState(() {
+          _errorMessage = 'Program tidak ditemukan';
+          _isLoading = false;
+        });
       }
     } catch (e) {
-      print('Error loading program data: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: ${e.toString()}')),
-      );
-      context.go(RouteNames.adminProgramList);
-    }
-  }
-
-  Future<void> _pickImage() async {
-    final ImagePicker picker = ImagePicker();
-    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-    
-    if (image != null) {
-      setState(() {
-        _selectedImage = File(image.path);
-      });
-    }
-  }
-
-  Future<void> _saveChanges() async {
-    if (_formKey.currentState!.validate()) {
-      setState(() {
-        _isSaving = true;
-      });
-
-      try {
-        final success = await _programService.updateProgram(
-          programId: widget.programId,
-          programName: _namaProgramController.text.trim(),
-          organizer: _organizerController.text.trim(),
-          targetAudience: _targetAudienceController.text.trim(),
-          category: _selectedCategory!,
-          description: _deskripsiController.text.trim(),
-          termsAndConditions: _syaratKetentuanController.text.trim(),
-          registrationGuide: _caraPendaftaranController.text.trim(),
-          status: _selectedStatus!,
-          imageFile: _selectedImage,
-          existingImageUrl: _existingImageUrl,
-        );
-
-        if (success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Program berhasil diperbarui')),
-          );
-          context.go(RouteNames.adminProgramList);
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Gagal memperbarui program')),
-          );
-        }
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString()}')),
-        );
-      } finally {
+      if (mounted) {
         setState(() {
-          _isSaving = false;
+          _errorMessage = 'Gagal memuat data program: ${e.toString()}';
+          _isLoading = false;
         });
       }
     }
   }
 
-  String _getStatusDisplayName(String status) {
-    switch (status) {
-      case 'active':
-        return 'Aktif';
-      case 'inactive':
-        return 'Tidak Aktif';
-      case 'closed':
-        return 'Ditutup';
-      case 'upcoming':
-        return 'Akan Datang';
-      default:
-        return status;
+  void _editProgram() {
+    context.go('${RouteNames.adminEditProgram}/${widget.programId}');
+  }
+
+  Future<void> _deleteProgram() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.red.shade100,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.warning_rounded, color: Colors.red.shade600),
+            ),
+            const SizedBox(width: 12),
+            const Text('Konfirmasi Hapus'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Apakah Anda yakin ingin menghapus program ini?'),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red.shade200),
+              ),
+              child: Text(
+                _programData?['programName'] ?? '',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.red.shade800,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Tindakan ini tidak dapat dibatalkan!',
+              style: TextStyle(
+                color: Colors.red.shade600,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade600,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        final success = await _programService.deleteProgram(widget.programId);
+        if (success && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Program "${_programData?['programName']}" berhasil dihapus'),
+              backgroundColor: Colors.green.shade600,
+            ),
+          );
+          context.go(RouteNames.adminProgramList);
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Gagal menghapus program: $e'),
+              backgroundColor: Colors.red.shade600,
+            ),
+          );
+        }
+      }
     }
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'active': return Colors.green;
+      case 'inactive': return Colors.orange;
+      case 'upcoming': return Colors.blue;
+      default: return Colors.grey;
+    }
+  }
+
+  IconData _getStatusIcon(String status) {
+    switch (status.toLowerCase()) {
+      case 'active': return Icons.check_circle_rounded;
+      case 'inactive': return Icons.pause_circle_rounded;
+      case 'upcoming': return Icons.schedule_rounded;
+      default: return Icons.help_outline_rounded;
+    }
+  }
+
+  IconData _getCategoryIcon(String category) {
+    switch (category.toLowerCase()) {
+      case 'kesehatan': return Icons.medical_services_rounded;
+      case 'pendidikan': return Icons.school_rounded;
+      case 'ekonomi': return Icons.business_center_rounded;
+      case 'bantuan sosial': return Icons.favorite_rounded;
+      default: return Icons.category_rounded;
+    }
+  }
+
+  String _formatDate(Timestamp? timestamp) {
+    if (timestamp == null) return 'Tidak diketahui';
+    final date = timestamp.toDate();
+    return '${date.day}/${date.month}/${date.year}';
   }
 
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('Detail Program'),
-          backgroundColor: Colors.blue.shade700,
-          foregroundColor: Colors.white,
+        body: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.blue.shade900, Colors.blue.shade600],
+            ),
+          ),
+          child: const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircularProgressIndicator(color: Colors.white),
+                SizedBox(height: 16),
+                Text(
+                  'Memuat detail program...',
+                  style: TextStyle(color: Colors.white, fontSize: 16),
+                ),
+              ],
+            ),
+          ),
         ),
-        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_errorMessage != null) {
+      return Scaffold(
+        body: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.red.shade900, Colors.red.shade600],
+            ),
+          ),
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.error_outline, size: 64, color: Colors.white),
+                const SizedBox(height: 16),
+                Text(
+                  _errorMessage!,
+                  style: const TextStyle(color: Colors.white, fontSize: 16),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: () => context.go(RouteNames.adminProgramList),
+                  child: const Text('Kembali ke Daftar Program'),
+                ),
+              ],
+            ),
+          ),
+        ),
       );
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Detail Program: ${_programData?['programName'] ?? ''}'),
-        backgroundColor: Colors.blue.shade700,
-        foregroundColor: Colors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go(RouteNames.adminProgramList),
-        ),
-      ),
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Colors.blue.shade100, Colors.blue.shade200],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Colors.blue.shade900, Colors.blue.shade700, Colors.blue.shade500],
           ),
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Form(
-            key: _formKey,
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+        child: SafeArea(
+          child: Column(
+            children: [
+              _buildCustomAppBar(),
+              Expanded(
+                child: FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: SlideTransition(
+                    position: _slideAnimation,
+                    child: _buildContent(),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCustomAppBar() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      child: Row(
+        children: [
+          // Back Button
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+              onPressed: () => context.go(RouteNames.adminProgramList),
+            ),
+          ),
+          const SizedBox(width: 16),
+
+          // Title
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Detail Program',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  _programData?['programName'] ?? '',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.8),
+                    fontSize: 14,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+
+          // Action Buttons
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.edit_rounded, color: Colors.white),
+              onPressed: _editProgram,
+              tooltip: 'Edit Program',
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.red.withOpacity(0.8),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.delete_rounded, color: Colors.white),
+              onPressed: _deleteProgram,
+              tooltip: 'Hapus Program',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContent() {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(24),
+          topRight: Radius.circular(24),
+        ),
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          children: [
+            // Header Image & Basic Info
+            _buildHeaderSection(),
+            
+            // Program Details
+            _buildDetailsSection(),
+            
+            // Applications Section
+            _buildApplicationsSection(),
+            
+            const SizedBox(height: 32),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeaderSection() {
+    return Container(
+      child: Column(
+        children: [
+          // Image Section
+          if (_programData?['imageUrl'] != null && _programData!['imageUrl'].isNotEmpty)
+            Container(
+              height: 250,
+              width: double.infinity,
+              child: Stack(
                 children: [
-                  // Statistics Card
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        children: [
-                          const Text(
-                            'Statistik Program',
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ClipRRect(
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(24),
+                      topRight: Radius.circular(24),
+                    ),
+                    child: Image.network(
+                      _programData!['imageUrl'],
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      height: double.infinity,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          color: Colors.grey.shade200,
+                          child: Icon(
+                            Icons.image_not_supported_rounded,
+                            size: 64,
+                            color: Colors.grey.shade400,
                           ),
-                          const SizedBox(height: 8),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceAround,
-                            children: [
-                              Column(
-                                children: [
-                                  Text(
-                                    '${_programData?['totalApplications'] ?? 0}',
-                                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.blue),
-                                  ),
-                                  const Text('Total Pengajuan'),
-                                ],
-                              ),
-                              Column(
-                                children: [
-                                  Text(
-                                    _getStatusDisplayName(_selectedStatus ?? ''),
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: _selectedStatus == 'active' ? Colors.green : Colors.orange,
-                                    ),
-                                  ),
-                                  const Text('Status'),
-                                ],
-                              ),
-                            ],
+                        );
+                      },
+                    ),
+                  ),
+                  // Status Overlay
+                  Positioned(
+                    top: 16,
+                    right: 16,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: _getStatusColor(_programData!['status']).withOpacity(0.9),
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _getStatusIcon(_programData!['status']),
+                            size: 16,
+                            color: Colors.white,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            _programData!['status'].toUpperCase(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ],
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16.0),
-                  
-                  // Program Name
-                  TextFormField(
-                    controller: _namaProgramController,
-                    decoration: const InputDecoration(
-                      labelText: 'Nama Program',
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Nama Program tidak boleh kosong';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16.0),
-                  
-                  // Organizer
-                  TextFormField(
-                    controller: _organizerController,
-                    decoration: const InputDecoration(
-                      labelText: 'Penyelenggara',
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Penyelenggara tidak boleh kosong';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16.0),
-                  
-                  // Target Audience
-                  TextFormField(
-                    controller: _targetAudienceController,
-                    decoration: const InputDecoration(
-                      labelText: 'Target Penerima',
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Target Penerima tidak boleh kosong';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16.0),
-                  
-                  // Category and Status Row
-                  Row(
-                    children: [
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          decoration: const InputDecoration(
-                            labelText: 'Kategori',
-                            filled: true,
-                            fillColor: Colors.white,
-                            border: OutlineInputBorder(),
-                          ),
-                          value: _selectedCategory,
-                          items: _categories.map((String category) {
-                            return DropdownMenuItem<String>(
-                              value: category,
-                              child: Text(category),
-                            );
-                          }).toList(),
-                          onChanged: (newValue) {
-                            setState(() {
-                              _selectedCategory = newValue;
-                            });
-                          },
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Pilih Kategori';
-                            }
-                            return null;
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 16.0),
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          decoration: const InputDecoration(
-                            labelText: 'Status',
-                            filled: true,
-                            fillColor: Colors.white,
-                            border: OutlineInputBorder(),
-                          ),
-                          value: _selectedStatus,
-                          items: _statuses.map((String status) {
-                            return DropdownMenuItem<String>(
-                              value: status,
-                              child: Text(_getStatusDisplayName(status)),
-                            );
-                          }).toList(),
-                          onChanged: (newValue) {
-                            setState(() {
-                              _selectedStatus = newValue;
-                            });
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16.0),
-                  
-                  // Description
-                  TextFormField(
-                    controller: _deskripsiController,
-                    decoration: const InputDecoration(
-                      labelText: 'Deskripsi Program',
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(),
-                    ),
-                    maxLines: 3,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Deskripsi tidak boleh kosong';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16.0),
-                  
-                  // Terms and Conditions
-                  TextFormField(
-                    controller: _syaratKetentuanController,
-                    decoration: const InputDecoration(
-                      labelText: 'Syarat & Ketentuan',
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(),
-                    ),
-                    maxLines: 3,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Syarat & Ketentuan tidak boleh kosong';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16.0),
-                  
-                  // Registration Guide
-                  TextFormField(
-                    controller: _caraPendaftaranController,
-                    decoration: const InputDecoration(
-                      labelText: 'Panduan Pendaftaran',
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(),
-                    ),
-                    maxLines: 3,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Panduan Pendaftaran tidak boleh kosong';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16.0),
-                  
-                  // Image Upload/Display
-                  Container(
-                    height: 200,
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey),
-                      borderRadius: BorderRadius.circular(8.0),
-                      color: Colors.white,
-                    ),
-                    child: _selectedImage != null
-                        ? ClipRRect(
-                            borderRadius: BorderRadius.circular(8.0),
-                            child: Image.file(
-                              _selectedImage!,
-                              fit: BoxFit.cover,
-                              width: double.infinity,
-                            ),
-                          )
-                        : _existingImageUrl != null && _existingImageUrl!.isNotEmpty
-                            ? ClipRRect(
-                                borderRadius: BorderRadius.circular(8.0),
-                                child: Image.network(
-                                  _existingImageUrl!,
-                                  fit: BoxFit.cover,
-                                  width: double.infinity,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return const Center(
-                                      child: Icon(Icons.error, size: 50, color: Colors.grey),
-                                    );
-                                  },
-                                ),
-                              )
-                            : InkWell(
-                                onTap: _pickImage,
-                                child: const Center(
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(Icons.add_photo_alternate, size: 50, color: Colors.grey),
-                                      SizedBox(height: 8),
-                                      Text('Tambah Gambar Program', style: TextStyle(color: Colors.grey)),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                  ),
-                  const SizedBox(height: 8.0),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          _selectedImage != null
-                              ? 'Gambar baru dipilih: ${_selectedImage!.path.split('/').last}'
-                              : _existingImageUrl != null && _existingImageUrl!.isNotEmpty
-                                  ? 'Gambar saat ini tersedia'
-                                  : 'Belum ada gambar',
-                          style: const TextStyle(fontSize: 12, color: Colors.grey),
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: _pickImage,
-                        child: Text(_selectedImage != null || (_existingImageUrl != null && _existingImageUrl!.isNotEmpty) 
-                            ? 'Ganti' : 'Pilih'),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24.0),
-                  
-                  // Save Button
-                  ElevatedButton(
-                    onPressed: _isSaving ? null : _saveChanges,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16.0),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8.0),
-                      ),
-                      textStyle: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    child: _isSaving
-                        ? const CircularProgressIndicator(color: Colors.white)
-                        : const Text('Simpan Perubahan'),
-                  ),
                 ],
               ),
             ),
+
+          // Basic Info Card
+          Container(
+            margin: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.08),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Program Name
+                Text(
+                  _programData!['programName'],
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Category & Stats Row
+                Row(
+                  children: [
+                    // Category
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.blue.shade200),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              _getCategoryIcon(_programData!['category']),
+                              color: Colors.blue.shade600,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _programData!['category'],
+                                style: TextStyle(
+                                  color: Colors.blue.shade700,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+
+                    // Applications Count
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.purple.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.purple.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.assignment_rounded,
+                            color: Colors.purple.shade600,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${_programData!['totalApplications']} Pengajuan',
+                            style: TextStyle(
+                              color: Colors.purple.shade700,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Meta Info
+                _buildInfoRow(Icons.business_rounded, 'Penyelenggara', _programData!['organizer']),
+                const SizedBox(height: 8),
+                _buildInfoRow(Icons.group_rounded, 'Target Penerima', _programData!['targetAudience']),
+                const SizedBox(height: 8),
+                _buildInfoRow(Icons.calendar_today_rounded, 'Dibuat', _formatDate(_programData!['createdAt'])),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailsSection() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Description
+          _buildDetailCard(
+            'Deskripsi Program',
+            Icons.description_rounded,
+            _programData!['description'],
+            Colors.blue,
+          ),
+          const SizedBox(height: 16),
+
+          // Terms and Conditions
+          _buildDetailCard(
+            'Syarat & Ketentuan',
+            Icons.checklist_rounded,
+            _programData!['termsAndConditions'],
+            Colors.orange,
+          ),
+          const SizedBox(height: 16),
+
+          // Registration Guide
+          _buildDetailCard(
+            'Panduan Pendaftaran',
+            Icons.list_alt_rounded,
+            _programData!['registrationGuide'],
+            Colors.green,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildApplicationsSection() {
+    return Container(
+      margin: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Section Header
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.purple.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.assignment_rounded,
+                  color: Colors.purple.shade600,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Daftar Pengajuan (${_applications.length})',
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Applications List
+          if (_applications.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(32),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.assignment_outlined,
+                    size: 48,
+                    color: Colors.grey.shade400,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Belum ada pengajuan',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey.shade600,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _applications.length,
+              itemBuilder: (context, index) {
+                final application = _applications[index];
+                return _buildApplicationCard(application);
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailCard(String title, IconData icon, String content, MaterialColor color) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: color.shade600, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            content,
+            style: const TextStyle(
+              fontSize: 14,
+              color: Colors.black87,
+              height: 1.6,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildApplicationCard(Map<String, dynamic> application) {
+    Color statusColor = Colors.orange;
+    IconData statusIcon = Icons.pending_rounded;
+    
+    switch (application['status'].toLowerCase()) {
+      case 'approved':
+        statusColor = Colors.green;
+        statusIcon = Icons.check_circle_rounded;
+        break;
+      case 'rejected':
+        statusColor = Colors.red;
+        statusIcon = Icons.cancel_rounded;
+        break;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: statusColor.withOpacity(0.3)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  application['userName'] ?? 'Nama tidak tersedia',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: statusColor,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(statusIcon, size: 14, color: Colors.white),
+                    const SizedBox(width: 4),
+                    Text(
+                      application['status'].toUpperCase(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            application['userEmail'] ?? '',
+            style: TextStyle(
+              color: Colors.grey.shade600,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Diajukan: ${_formatDate(application['submittedAt'])}',
+            style: TextStyle(
+              color: Colors.grey.shade500,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: Colors.grey.shade600),
+        const SizedBox(width: 8),
+        Text(
+          '$label: ',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: Colors.grey.shade700,
           ),
         ),
-      ),
+        Expanded(
+          child: Text(
+            value,
+            style: const TextStyle(
+              fontSize: 14,
+              color: Colors.black87,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -12,14 +12,15 @@ class RouteNames {
   static const String userDashboard = '/user/dashboard';
   static const String userChatbot = '/user/chatbot';
   static const String userEducation = '/user/education';
-  static const String userEducationDetail = '/user/education/:articleId';
+  static const String userEducationDetail = '/user/education/detail/:articleId';
   static const String userProfile = '/user/profile';
   static const String editUserProfile = '/user/profile/edit';
+  static const String userApplications = '/user/applications'; // ✅ NEW
 
-  // Program routes
-  static const String programExplorer = '/user/programs/explorer';
+  // Program routes - Fixed to use consistent naming
+  static const String programExplorer = '/user/programs';
   static const String programRecommendations = '/user/programs/recommendations';
-  static const String programDetail = '/user/programs/:programId';
+  static const String programDetail = '/user/programs/detail/:programId';
 
   // Admin routes
   static const String adminLogin = '/admin/login';
@@ -31,16 +32,19 @@ class RouteNames {
 
   // Admin User Management routes
   static const String adminUserList = '/admin/users';
+  static const String adminUserManagement = '/admin/users';
   static const String adminEditUser = '/admin/users/edit';
 
-  // Admin Program Management routes
+  // Admin Program Management Routes
   static const String adminProgramList = '/admin/programs';
   static const String adminProgramDetail = '/admin/programs/detail';
+  static const String adminEditProgram = '/admin/programs/edit';
   static const String adminAddProgram = '/admin/programs/add';
 
   // Admin Submission Management routes
   static const String adminSubmissionManagement = '/admin/submissions';
   static const String adminSubmissionDetail = '/admin/submissions/detail';
+  static const String adminEditSubmission = '/admin/submissions/edit'; // ✅ NEW
 
   // Admin Education Content Management routes
   static const String adminEducationContent = '/admin/education';

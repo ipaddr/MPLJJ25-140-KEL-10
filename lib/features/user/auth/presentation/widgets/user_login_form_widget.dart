@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:socio_care/core/navigation/route_names.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class LoginFormWidget extends StatefulWidget {
   const LoginFormWidget({super.key});
@@ -11,6 +13,7 @@ class LoginFormWidget extends StatefulWidget {
 
 class _LoginFormWidgetState extends State<LoginFormWidget> {
   bool _isPasswordVisible = false;
+  bool _isLoading = false;
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
@@ -22,13 +25,122 @@ class _LoginFormWidgetState extends State<LoginFormWidget> {
     super.dispose();
   }
 
-  void _login() {
+  Future<void> _login() async {
     if (_formKey.currentState!.validate()) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Processing Login')));
-      // Navigate to dashboard using GoRouter
-      context.go(RouteNames.userDashboard);
+      setState(() {
+        _isLoading = true;
+      });
+
+      try {
+        // 1. Authenticate with Firebase
+        UserCredential userCredential = await FirebaseAuth.instance
+            .signInWithEmailAndPassword(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+        );
+
+        User? user = userCredential.user;
+        if (user != null) {
+          // 2. Check if user exists in 'users' collection (not 'admins')
+          DocumentSnapshot userDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .get();
+
+          if (userDoc.exists) {
+            // User found in users collection
+            Map<String, dynamic> userData = userDoc.data() as Map<String, dynamic>;
+            
+            // 3. Check if user account is active
+            bool isActive = userData['isActive'] ?? true;
+            if (!isActive) {
+              await FirebaseAuth.instance.signOut();
+              throw Exception('Akun Anda tidak aktif. Hubungi administrator.');
+            }
+
+            // 4. Update last login timestamp
+            await FirebaseFirestore.instance
+                .collection('users')
+                .doc(user.uid)
+                .update({
+              'lastLogin': FieldValue.serverTimestamp(),
+            });
+
+            // 5. Navigate to user dashboard
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Login berhasil!'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+              context.go(RouteNames.userDashboard);
+            }
+          } else {
+            // Check if this email belongs to an admin
+            DocumentSnapshot adminDoc = await FirebaseFirestore.instance
+                .collection('admin_profiles')
+                .doc(user.uid)
+                .get();
+
+            if (adminDoc.exists) {
+              await FirebaseAuth.instance.signOut();
+              throw Exception('Gunakan halaman login admin untuk akun ini.');
+            } else {
+              await FirebaseAuth.instance.signOut();
+              throw Exception('Data pengguna tidak ditemukan.');
+            }
+          }
+        }
+      } on FirebaseAuthException catch (e) {
+        String errorMessage;
+        switch (e.code) {
+          case 'user-not-found':
+            errorMessage = 'Email tidak terdaftar.';
+            break;
+          case 'wrong-password':
+            errorMessage = 'Password salah.';
+            break;
+          case 'invalid-email':
+            errorMessage = 'Format email tidak valid.';
+            break;
+          case 'user-disabled':
+            errorMessage = 'Akun telah dinonaktifkan.';
+            break;
+          case 'too-many-requests':
+            errorMessage = 'Terlalu banyak percobaan login. Coba lagi nanti.';
+            break;
+          case 'invalid-credential':
+            errorMessage = 'Email atau password salah.';
+            break;
+          default:
+            errorMessage = 'Terjadi kesalahan: ${e.message}';
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(errorMessage),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(e.toString().replaceAll('Exception: ', '')),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
     }
   }
 
@@ -57,11 +169,11 @@ class _LoginFormWidgetState extends State<LoginFormWidget> {
               isDense: true,
             ),
             keyboardType: TextInputType.emailAddress,
+            enabled: !_isLoading,
             validator: (value) {
-              if (value == null || value.isEmpty) {
+              if (value == null || value.trim().isEmpty) {
                 return 'Email tidak boleh kosong';
               }
-              // Add basic email format validation
               if (!value.contains('@')) {
                 return 'Masukkan email yang valid';
               }
@@ -77,7 +189,7 @@ class _LoginFormWidgetState extends State<LoginFormWidget> {
                 icon: Icon(
                   _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
                 ),
-                onPressed: () {
+                onPressed: _isLoading ? null : () {
                   setState(() {
                     _isPasswordVisible = !_isPasswordVisible;
                   });
@@ -97,16 +209,20 @@ class _LoginFormWidgetState extends State<LoginFormWidget> {
               isDense: true,
             ),
             obscureText: !_isPasswordVisible,
+            enabled: !_isLoading,
             validator: (value) {
               if (value == null || value.isEmpty) {
-                return 'Kata Sandi tidak boleh kosong';
+                return 'Password tidak boleh kosong';
+              }
+              if (value.length < 6) {
+                return 'Password minimal 6 karakter';
               }
               return null;
             },
           ),
           const SizedBox(height: 24.0),
           ElevatedButton(
-            onPressed: _login,
+            onPressed: _isLoading ? null : _login,
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF0066CC),
               foregroundColor: Colors.white,
@@ -123,10 +239,19 @@ class _LoginFormWidgetState extends State<LoginFormWidget> {
                 fontWeight: FontWeight.normal,
               ),
             ),
-            child: const Text(
-              'Masuk',
-              style: TextStyle(fontWeight: FontWeight.normal),
-            ),
+            child: _isLoading
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                : const Text(
+                    'Masuk',
+                    style: TextStyle(fontWeight: FontWeight.normal),
+                  ),
           ),
         ],
       ),

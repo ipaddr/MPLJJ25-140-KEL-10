@@ -4,6 +4,7 @@ import 'package:socio_care/core/navigation/route_names.dart';
 import 'package:socio_care/features/admin/dashboard/presentation/pages/admin_dashboard_pages.dart';
 import 'package:socio_care/features/admin/profile/presentation/pages/admin_profile_page.dart';
 import 'package:socio_care/features/admin/profile/presentation/pages/edit_admin_data_page.dart';
+import 'package:socio_care/features/admin/program_management/presentation/pages/admin_edit_program_page.dart';
 import 'package:socio_care/features/auth/presentation/pages/splash_page.dart';
 import 'package:socio_care/features/auth/presentation/pages/onboarding_page.dart';
 import 'package:socio_care/features/user/auth/presentation/pages/user_login_page.dart';
@@ -16,6 +17,7 @@ import 'package:socio_care/features/user/dashboard/presentation/pages/user_dashb
 import 'package:socio_care/features/user/education/presentation/pages/education_detail_page.dart';
 import 'package:socio_care/features/user/education/presentation/pages/education_list_page.dart';
 import 'package:socio_care/features/user/profile/presentation/pages/edit_user_data_page.dart';
+import 'package:socio_care/features/user/profile/presentation/pages/user_application_page.dart';
 import 'package:socio_care/features/user/profile/presentation/pages/user_profile_page.dart';
 import 'package:socio_care/features/user/programs/presentation/pages/program_detail_page.dart';
 import 'package:socio_care/features/user/programs/presentation/pages/program_explorer_page.dart';
@@ -32,6 +34,7 @@ import 'package:socio_care/features/admin/program_management/presentation/pages/
 import 'package:socio_care/features/admin/program_management/presentation/pages/admin_add_program_page.dart';
 import 'package:socio_care/features/admin/submission_management/presentation/pages/admin_submission_list_page.dart';
 import 'package:socio_care/features/admin/submission_management/presentation/pages/admin_submission_detail_page.dart';
+import 'package:socio_care/features/admin/submission_management/presentation/pages/admin_edit_submission_page.dart'; // ✅ NEW
 import 'package:socio_care/features/admin/education_content/presentation/pages/admin_content_list_page.dart';
 import 'package:socio_care/features/admin/education_content/presentation/pages/admin_content_editor_page.dart';
 
@@ -56,7 +59,7 @@ final GoRouter appRouter = GoRouter(
       builder: (context, state) => const OnboardingPage(),
     ),
 
-    //User routes
+    // User routes
     GoRoute(
       path: RouteNames.login,
       name: 'user-login',
@@ -75,32 +78,25 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: RouteNames.userOtp,
       name: 'user-otp',
-      builder: (context, state) => const UserOtpPage(),
+      builder:
+          (context, state) =>
+              UserOtpPage(resetData: state.extra as Map<String, dynamic>?),
     ),
     GoRoute(
       path: RouteNames.userNewPassword,
       name: 'user-new-password',
-      builder: (context, state) => const UserNewPasswordPage(),
+      builder:
+          (context, state) => UserNewPasswordPage(
+            resetData: state.extra as Map<String, dynamic>?,
+          ),
     ),
     GoRoute(
       path: RouteNames.editUserProfile,
       name: 'user-edit-profile',
       builder: (context, state) => const EditUserDataPage(),
     ),
-    GoRoute(
-      path: RouteNames.userEducationDetail,
-      name: 'user-education-detail',
-      builder:
-          (context, state) => EducationDetailPage(
-            articleId: state.pathParameters['articleId'] ?? '',
-            title:
-                (state.extra as Map<String, dynamic>?)?['title'] ??
-                'Article Title',
-            content:
-                (state.extra as Map<String, dynamic>?)?['content'] ??
-                'Article Content',
-          ),
-    ),
+
+    // User Dashboard & Features
     GoRoute(
       path: RouteNames.userDashboard,
       name: 'user-dashboard',
@@ -112,15 +108,33 @@ final GoRouter appRouter = GoRouter(
       builder: (context, state) => const AiChatbotPage(),
     ),
     GoRoute(
+      path: RouteNames.userProfile,
+      name: 'user-profile',
+      builder: (context, state) => const UserProfilePage(),
+    ),
+    // ✅ NEW: User Applications route
+    GoRoute(
+      path: RouteNames.userApplications,
+      name: 'user-applications',
+      builder: (context, state) => const UserApplicationsPage(),
+    ),
+
+    // User Education routes
+    GoRoute(
       path: RouteNames.userEducation,
       name: 'user-education',
       builder: (context, state) => const EducationListPage(),
     ),
     GoRoute(
-      path: RouteNames.userProfile,
-      name: 'user-profile',
-      builder: (context, state) => const UserProfilePage(),
+      path: RouteNames.userEducationDetail,
+      name: 'user-education-detail',
+      builder:
+          (context, state) => EducationDetailPage(
+            articleId: state.pathParameters['articleId'] ?? '',
+          ),
     ),
+
+    // User Program routes
     GoRoute(
       path: RouteNames.programExplorer,
       name: 'user-program-explorer',
@@ -134,16 +148,16 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: RouteNames.programDetail,
       name: 'user-program-detail',
-      builder:
-          (context, state) => ProgramDetailPage(
-            programId: state.pathParameters['programId'] ?? '',
-            isRecommended:
-                (state.extra as Map<String, dynamic>?)?['isRecommended'] ??
-                false,
-          ),
+      builder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>?;
+        return ProgramDetailPage(
+          programId: state.pathParameters['programId'] ?? '',
+          isRecommended: extra?['isRecommended'] ?? false,
+        );
+      },
     ),
 
-    // Admin routes
+    // Admin Authentication routes
     GoRoute(
       path: RouteNames.adminLogin,
       name: 'admin-login',
@@ -163,17 +177,20 @@ final GoRouter appRouter = GoRouter(
       path: RouteNames.adminOtp,
       name: 'admin-otp',
       builder:
-          (context, state) =>
-              AdminOtpPage(resetData: state.extra as Map<String, dynamic>),
+          (context, state) => AdminOtpPage(
+            resetData: state.extra as Map<String, dynamic>? ?? {},
+          ),
     ),
     GoRoute(
       path: RouteNames.adminNewPassword,
       name: 'admin-new-password',
       builder:
           (context, state) => AdminNewPasswordPage(
-            resetData: state.extra as Map<String, dynamic>,
+            resetData: state.extra as Map<String, dynamic>? ?? {},
           ),
     ),
+
+    // Admin Dashboard
     GoRoute(
       path: RouteNames.adminDashboard,
       name: 'admin-dashboard',
@@ -182,8 +199,8 @@ final GoRouter appRouter = GoRouter(
 
     // Admin User Management routes
     GoRoute(
-      path: RouteNames.adminUserList,
-      name: 'admin-user-list',
+      path: RouteNames.adminUserManagement,
+      name: 'admin-user-management',
       builder: (context, state) => const AdminUserListPage(),
     ),
     GoRoute(
@@ -201,23 +218,31 @@ final GoRouter appRouter = GoRouter(
       builder: (context, state) => const AdminProgramListPage(),
     ),
     GoRoute(
-      path: '${RouteNames.adminProgramDetail}/:programId',
-      name: 'admin-program-detail',
-      builder:
-          (context, state) => AdminProgramDetailPage(
-            programId: state.pathParameters['programId'] ?? '',
-          ),
-    ),
-    GoRoute(
       path: RouteNames.adminAddProgram,
       name: 'admin-add-program',
       builder: (context, state) => const AdminAddProgramPage(),
+    ),
+    GoRoute(
+      path: '/admin/programs/detail/:programId',
+      name: 'admin-program-detail',
+      builder: (context, state) {
+        final programId = state.pathParameters['programId']!;
+        return AdminProgramDetailPage(programId: programId);
+      },
+    ),
+    GoRoute(
+      path: '/admin/programs/edit/:programId',
+      name: 'admin-edit-program',
+      builder: (context, state) {
+        final programId = state.pathParameters['programId']!;
+        return AdminEditProgramPage(programId: programId);
+      },
     ),
 
     // Admin Submission Management routes
     GoRoute(
       path: RouteNames.adminSubmissionManagement,
-      name: 'admin-submission-list',
+      name: 'admin-submission-management',
       builder: (context, state) => const AdminSubmissionListPage(),
     ),
     GoRoute(
@@ -228,11 +253,20 @@ final GoRouter appRouter = GoRouter(
             submissionId: state.pathParameters['submissionId'] ?? '',
           ),
     ),
+    // ✅ NEW: Admin Edit Submission route
+    GoRoute(
+      path: '${RouteNames.adminEditSubmission}/:submissionId',
+      name: 'admin-edit-submission',
+      builder:
+          (context, state) => AdminEditSubmissionPage(
+            submissionId: state.pathParameters['submissionId'] ?? '',
+          ),
+    ),
 
     // Admin Education Content Management routes
     GoRoute(
       path: RouteNames.adminEducationContent,
-      name: 'admin-content-list',
+      name: 'admin-education-content',
       builder: (context, state) => const AdminContentListPage(),
     ),
     GoRoute(

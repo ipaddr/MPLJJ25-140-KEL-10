@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'dart:developer' as developer;
 import 'models/admin_profile_model.dart';
 
 class AdminProfileService {
@@ -26,7 +27,7 @@ class AdminProfileService {
         return await _createDefaultProfile(user);
       }
     } catch (e) {
-      print('Error getting admin profile: $e');
+      developer.log('Error getting admin profile: $e', name: 'AdminProfileService');
       return null;
     }
   }
@@ -56,7 +57,7 @@ class AdminProfileService {
       await _firestore.collection(_collectionName).doc(user.uid).set(defaultProfile.toFirestore());
       return defaultProfile;
     } catch (e) {
-      print('Error creating default profile: $e');
+      developer.log('Error creating default profile: $e', name: 'AdminProfileService');
       return null;
     }
   }
@@ -98,7 +99,7 @@ class AdminProfileService {
 
       return true;
     } catch (e) {
-      print('Error updating profile: $e');
+      developer.log('Error updating profile: $e', name: 'AdminProfileService');
       return false;
     }
   }
@@ -113,7 +114,7 @@ class AdminProfileService {
         'lastLogin': FieldValue.serverTimestamp(),
       });
     } catch (e) {
-      print('Error updating last login: $e');
+      developer.log('Error updating last login: $e', name: 'AdminProfileService');
     }
   }
 
@@ -145,7 +146,7 @@ class AdminProfileService {
         };
       }).toList();
     } catch (e) {
-      print('Error getting managed programs: $e');
+      developer.log('Error getting managed programs: $e', name: 'AdminProfileService');
       return [];
     }
   }
@@ -161,7 +162,7 @@ class AdminProfileService {
       
       return await snapshot.ref.getDownloadURL();
     } catch (e) {
-      print('Error uploading profile image: $e');
+      developer.log('Error uploading profile image: $e', name: 'AdminProfileService');
       return null;
     }
   }
@@ -172,7 +173,7 @@ class AdminProfileService {
       final ref = _storage.refFromURL(imageUrl);
       await ref.delete();
     } catch (e) {
-      print('Error deleting profile image: $e');
+      developer.log('Error deleting profile image: $e', name: 'AdminProfileService');
     }
   }
 
@@ -196,7 +197,7 @@ class AdminProfileService {
         'publishedContent': results[3].count ?? 0,
       };
     } catch (e) {
-      print('Error getting admin statistics: $e');
+      developer.log('Error getting admin statistics: $e', name: 'AdminProfileService');
       return {};
     }
   }
@@ -223,7 +224,7 @@ class AdminProfileService {
       
       return true;
     } catch (e) {
-      print('Error changing password: $e');
+      developer.log('Error changing password: $e', name: 'AdminProfileService');
       return false;
     }
   }
@@ -239,7 +240,7 @@ class AdminProfileService {
     try {
       await _auth.signOut();
     } catch (e) {
-      print('Error signing out: $e');
+      developer.log('Error signing out: $e', name: 'AdminProfileService');
     }
   }
 }

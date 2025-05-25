@@ -30,25 +30,63 @@ class LoginPage extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     // Logo
-                    Image.asset(logoAssetPath, width: 120, height: 120),
+                    CircleAvatar(
+                      radius: 60,
+                      backgroundColor: Colors.white.withOpacity(0.9),
+                      child: Image.asset(
+                        logoAssetPath,
+                        width: 80,
+                        height: 80,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Icon(
+                            Icons.person,
+                            size: 60,
+                            color: Colors.blue.shade700,
+                          );
+                        },
+                      ),
+                    ),
                     const SizedBox(height: 32.0),
+                    
                     // Title
-                    const Text(
-                      'Selamat Datang',
+                    Text(
+                      'Selamat Datang!',
                       style: TextStyle(
-                        fontSize: 24,
+                        fontSize: 28,
                         fontWeight: FontWeight.bold,
+                        color: Colors.blue.shade800,
+                        fontFamily: 'Poppins',
                       ),
                     ),
                     const SizedBox(height: 8.0),
-                    const Text(
+                    Text(
                       'Silahkan login untuk melanjutkan',
-                      style: TextStyle(fontSize: 14, color: Colors.black54),
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.grey.shade700,
+                        fontFamily: 'Poppins',
+                      ),
                     ),
-                    const SizedBox(height: 32.0),
+                    const SizedBox(height: 40.0),
+                    
                     // Login Form
-                    const LoginFormWidget(),
-                    const SizedBox(height: 16.0),
+                    Container(
+                      padding: const EdgeInsets.all(24.0),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.9),
+                        borderRadius: BorderRadius.circular(16.0),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 10,
+                            offset: const Offset(0, 5),
+                          ),
+                        ],
+                      ),
+                      child: const LoginFormWidget(),
+                    ),
+                    const SizedBox(height: 24.0),
+                    
                     // Forgot Password Link
                     TextButton(
                       onPressed: () {
@@ -56,49 +94,104 @@ class LoginPage extends StatelessWidget {
                       },
                       child: Text(
                         'Lupa Kata Sandi?',
-                        style: TextStyle(color: Colors.blue.shade800),
+                        style: TextStyle(
+                          color: Colors.blue.shade800,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16.0),
+                    
+                    // Register Link
+                    Container(
+                      padding: const EdgeInsets.all(16.0),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.7),
+                        borderRadius: BorderRadius.circular(12.0),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            'Belum punya akun? ',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey.shade700,
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              context.go(RouteNames.register);
+                            },
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            child: Text(
+                              'Daftar Sekarang',
+                              style: TextStyle(
+                                color: Colors.blue.shade800,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16.0),
+                    
+                    // Admin Login Link
+                    Container(
+                      padding: const EdgeInsets.all(16.0),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12.0),
+                        border: Border.all(
+                          color: Colors.orange.withOpacity(0.3),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.admin_panel_settings,
+                            color: Colors.orange.shade700,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Login sebagai Admin? ',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.orange.shade700,
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              context.go(RouteNames.adminLogin);
+                            },
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            child: Text(
+                              'Klik Disini',
+                              style: TextStyle(
+                                color: Colors.orange.shade800,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     const SizedBox(height: 24.0),
-                    // Register Link
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Text('Tidak Punya Akun? '),
-                        TextButton(
-                          onPressed: () {
-                            context.go(RouteNames.register);
-                          },
-                          child: Text(
-                            'Registrasi',
-                            style: TextStyle(
-                              color: Colors.blue.shade800,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    // Admin Login Link
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Text('Masuk sebagai Admin? '),
-                        TextButton(
-                          onPressed: () {
-                            context.go(RouteNames.adminLogin);
-                          },
-                          child: Text(
-                            'Klik Disini',
-                            style: TextStyle(
-                              color: Colors.blue.shade800,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16.0),
                   ],
                 ),
               ),

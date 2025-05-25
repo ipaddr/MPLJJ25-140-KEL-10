@@ -3,40 +3,65 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:socio_care/core/navigation/route_names.dart';
 import '../../data/admin_submission_service.dart';
-import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class AdminSubmissionDetailPage extends StatefulWidget {
   final String submissionId;
 
-  const AdminSubmissionDetailPage({super.key, required this.submissionId});
+  const AdminSubmissionDetailPage({
+    super.key,
+    required this.submissionId,
+  });
 
   @override
   State<AdminSubmissionDetailPage> createState() => _AdminSubmissionDetailPageState();
 }
 
-class _AdminSubmissionDetailPageState extends State<AdminSubmissionDetailPage> {
+class _AdminSubmissionDetailPageState extends State<AdminSubmissionDetailPage>
+    with TickerProviderStateMixin {
   final AdminSubmissionService _submissionService = AdminSubmissionService();
-  final TextEditingController _notesController = TextEditingController();
   
   Map<String, dynamic>? _submissionData;
   bool _isLoading = true;
-  bool _isUpdating = false;
   String? _errorMessage;
+  
+  late AnimationController _fadeController;
+  late AnimationController _slideController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
 
   @override
   void initState() {
     super.initState();
-    _loadSubmissionData();
+    _initializeAnimations();
+    _loadSubmissionDetails();
+  }
+
+  void _initializeAnimations() {
+    _fadeController = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    );
+    _slideController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
+    );
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.3),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _slideController, curve: Curves.easeOut));
   }
 
   @override
   void dispose() {
-    _notesController.dispose();
+    _fadeController.dispose();
+    _slideController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadSubmissionData() async {
+  Future<void> _loadSubmissionDetails() async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -44,13 +69,15 @@ class _AdminSubmissionDetailPageState extends State<AdminSubmissionDetailPage> {
 
     try {
       final submissionData = await _submissionService.getSubmissionById(widget.submissionId);
-      
+
       if (submissionData != null) {
         setState(() {
           _submissionData = submissionData;
-          _notesController.text = submissionData['notes'] ?? '';
           _isLoading = false;
         });
+        
+        _fadeController.forward();
+        _slideController.forward();
       } else {
         setState(() {
           _errorMessage = 'Pengajuan tidak ditemukan';
@@ -59,30 +86,63 @@ class _AdminSubmissionDetailPageState extends State<AdminSubmissionDetailPage> {
       }
     } catch (e) {
       setState(() {
-        _errorMessage = 'Gagal memuat data pengajuan: ${e.toString()}';
+        _errorMessage = 'Gagal memuat detail pengajuan: ${e.toString()}';
         _isLoading = false;
       });
     }
   }
 
-  Future<void> _updateSubmissionStatus(String newStatus) async {
+  void _editSubmission() {
+    context.go('${RouteNames.adminEditSubmission}/${widget.submissionId}');
+  }
+
+  Future<void> _deleteSubmission() async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Konfirmasi ${newStatus == 'Disetujui' ? 'Persetujuan' : 'Penolakan'}'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.red.shade100,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.warning_rounded, color: Colors.red.shade600),
+            ),
+            const SizedBox(width: 12),
+            const Text('Konfirmasi Hapus'),
+          ],
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Apakah Anda yakin ingin ${newStatus == 'Disetujui' ? 'menyetujui' : 'menolak'} pengajuan ini?'),
+            const Text('Apakah Anda yakin ingin menghapus pengajuan ini?'),
             const SizedBox(height: 16),
-            TextField(
-              controller: _notesController,
-              decoration: const InputDecoration(
-                labelText: 'Catatan Admin',
-                border: OutlineInputBorder(),
-                hintText: 'Masukkan catatan (opsional)',
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red.shade200),
               ),
-              maxLines: 3,
+              child: Text(
+                '${_submissionData?['userName']} - ${_submissionData?['programName']}',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.red.shade800,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Tindakan ini tidak dapat dibatalkan!',
+              style: TextStyle(
+                color: Colors.red.shade600,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ],
         ),
@@ -91,238 +151,40 @@ class _AdminSubmissionDetailPageState extends State<AdminSubmissionDetailPage> {
             onPressed: () => Navigator.of(context).pop(false),
             child: const Text('Batal'),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () => Navigator.of(context).pop(true),
-            style: TextButton.styleFrom(
-              foregroundColor: newStatus == 'Disetujui' ? Colors.green : Colors.red,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade600,
+              foregroundColor: Colors.white,
             ),
-            child: Text(newStatus == 'Disetujui' ? 'Setujui' : 'Tolak'),
+            child: const Text('Hapus'),
           ),
         ],
       ),
     );
 
     if (confirmed == true) {
-      setState(() {
-        _isUpdating = true;
-      });
-
       try {
-        final success = await _submissionService.updateSubmissionStatus(
-          submissionId: widget.submissionId,
-          newStatus: newStatus,
-          notes: _notesController.text.trim(),
-        );
-
-        if (success) {
+        final success = await _submissionService.deleteSubmission(widget.submissionId);
+        if (success && mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Pengajuan berhasil ${newStatus == 'Disetujui' ? 'disetujui' : 'ditolak'}')),
+            SnackBar(
+              content: const Text('Pengajuan berhasil dihapus'),
+              backgroundColor: Colors.green.shade600,
+            ),
           );
-          
-          // Reload data to show updated status
-          await _loadSubmissionData();
-          
-          // Navigate back to submission list after a short delay
-          Future.delayed(const Duration(seconds: 1), () {
-            if (mounted) {
-              context.go(RouteNames.adminSubmissionManagement);
-            }
-          });
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Gagal ${newStatus == 'Disetujui' ? 'menyetujui' : 'menolak'} pengajuan')),
-          );
+          context.go(RouteNames.adminSubmissionManagement);
         }
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString()}')),
-        );
-      } finally {
-        setState(() {
-          _isUpdating = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _downloadDocument(Map<String, dynamic> document) async {
-    try {
-      final fileUrl = document['fileUrl'] as String?;
-      if (fileUrl != null && fileUrl.isNotEmpty) {
-        final uri = Uri.parse(fileUrl);
-        if (await canLaunchUrl(uri)) {
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
-        } else {
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Tidak dapat membuka dokumen')),
+            SnackBar(
+              content: Text('Gagal menghapus pengajuan: $e'),
+              backgroundColor: Colors.red.shade600,
+            ),
           );
         }
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('URL dokumen tidak valid')),
-        );
       }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error membuka dokumen: ${e.toString()}')),
-      );
-    }
-  }
-
-  Color _getStatusColor(String status) {
-    switch (status) {
-      case 'Baru':
-        return Colors.blue;
-      case 'Diproses':
-        return Colors.orange;
-      case 'Disetujui':
-        return Colors.green;
-      case 'Ditolak':
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  String _formatCurrency(dynamic amount) {
-    int value = 0;
-    
-    if (amount is int) {
-      value = amount;
-    } else if (amount is String) {
-      value = int.tryParse(amount) ?? 0;
-    } else if (amount is double) {
-      value = amount.toInt();
-    }
-    
-    final formatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
-    return formatter.format(value);
-  }
-
-  String _safeGetString(Map<String, dynamic>? data, String key, [String defaultValue = 'N/A']) {
-    if (data == null) return defaultValue;
-    final value = data[key];
-    if (value == null) return defaultValue;
-    return value.toString();
-  }
-
-  String _formatFileSize(int bytes) {
-    if (bytes <= 0) return '0 B';
-    const suffixes = ['B', 'KB', 'MB', 'GB'];
-    var i = 0;
-    double size = bytes.toDouble();
-    while (size >= 1024 && i < suffixes.length - 1) {
-      size /= 1024;
-      i++;
-    }
-    return '${size.toStringAsFixed(1)} ${suffixes[i]}';
-  }
-
-  Widget _buildSupportingDocumentsSection() {
-    final documents = _submissionData!['supportingDocuments'] as List<Map<String, dynamic>>;
-    
-    if (documents.isEmpty) {
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Dokumen Pendukung',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8.0),
-              Text(
-                'Tidak ada dokumen pendukung yang dilampirkan.',
-                style: TextStyle(color: Colors.grey.shade600),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Dokumen Pendukung',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8.0),
-            ...documents.map((doc) {
-              final fileName = doc['fileName'] as String? ?? 'Dokumen';
-              final fileSize = doc['fileSize'] as int? ?? 0;
-              final fileType = doc['fileType'] as String? ?? 'unknown';
-              final uploadDate = doc['uploadDate'] as Timestamp?;
-              
-              return Card(
-                margin: const EdgeInsets.symmetric(vertical: 4.0),
-                child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: Colors.blue.shade100,
-                    child: Icon(
-                      _getFileIcon(fileType),
-                      color: Colors.blue.shade700,
-                    ),
-                  ),
-                  title: Text(
-                    fileName,
-                    style: const TextStyle(fontWeight: FontWeight.w500),
-                  ),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (fileSize > 0) Text('Ukuran: ${_formatFileSize(fileSize)}'),
-                      if (uploadDate != null)
-                        Text('Upload: ${DateFormat('dd MMM yyyy, HH:mm').format(uploadDate.toDate())}'),
-                    ],
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.visibility),
-                        onPressed: () => _downloadDocument(doc),
-                        tooltip: 'Lihat',
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.download),
-                        onPressed: () => _downloadDocument(doc),
-                        tooltip: 'Download',
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }).toList(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  IconData _getFileIcon(String fileType) {
-    switch (fileType.toLowerCase()) {
-      case 'pdf':
-        return Icons.picture_as_pdf;
-      case 'doc':
-      case 'docx':
-        return Icons.description;
-      case 'jpg':
-      case 'jpeg':
-      case 'png':
-      case 'gif':
-        return Icons.image;
-      case 'xls':
-      case 'xlsx':
-        return Icons.table_chart;
-      default:
-        return Icons.attach_file;
     }
   }
 
@@ -330,254 +192,657 @@ class _AdminSubmissionDetailPageState extends State<AdminSubmissionDetailPage> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('Detail Pengajuan'),
-          backgroundColor: Colors.blue.shade700,
-          foregroundColor: Colors.white,
+        body: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.blue.shade900, Colors.blue.shade600],
+            ),
+          ),
+          child: const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircularProgressIndicator(color: Colors.white),
+                SizedBox(height: 16),
+                Text(
+                  'Memuat detail pengajuan...',
+                  style: TextStyle(color: Colors.white, fontSize: 16),
+                ),
+              ],
+            ),
+          ),
         ),
-        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     if (_errorMessage != null) {
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('Detail Pengajuan'),
-          backgroundColor: Colors.blue.shade700,
-          foregroundColor: Colors.white,
-        ),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.error_outline, size: 64, color: Colors.red),
-              const SizedBox(height: 16),
-              Text(_errorMessage!),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => context.go(RouteNames.adminSubmissionManagement),
-                child: const Text('Kembali'),
-              ),
-            ],
+        body: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.red.shade900, Colors.red.shade600],
+            ),
+          ),
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.error_outline, size: 64, color: Colors.white),
+                const SizedBox(height: 16),
+                Text(
+                  _errorMessage!,
+                  style: const TextStyle(color: Colors.white, fontSize: 16),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: () => context.go(RouteNames.adminSubmissionManagement),
+                  child: const Text('Kembali ke Daftar Pengajuan'),
+                ),
+              ],
+            ),
           ),
         ),
       );
     }
 
-    final statusColor = _getStatusColor(_submissionData!['status']);
-    final submissionDate = _submissionData!['submissionDate'] as Timestamp?;
-    final formattedDate = submissionDate != null
-        ? DateFormat('dd MMMM yyyy, HH:mm').format(submissionDate.toDate())
-        : 'N/A';
-
-    final reviewDate = _submissionData!['reviewDate'] as Timestamp?;
-    final formattedReviewDate = reviewDate != null
-        ? DateFormat('dd MMMM yyyy, HH:mm').format(reviewDate.toDate())
-        : null;
-
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Detail Pengajuan'),
-        backgroundColor: Colors.blue.shade700,
-        foregroundColor: Colors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go(RouteNames.adminSubmissionManagement),
-        ),
-      ),
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Colors.blue.shade100, Colors.blue.shade200],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Colors.blue.shade900, Colors.blue.shade700, Colors.blue.shade500],
           ),
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Submission Info Card
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Pengajuan dari ${_safeGetString(_submissionData, 'userName')} untuk Program ${_safeGetString(_submissionData, 'programName')}',
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 8.0),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-                              decoration: BoxDecoration(
-                                color: statusColor.withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(12.0),
-                              ),
-                              child: Text(
-                                _safeGetString(_submissionData, 'status'),
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: statusColor,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8.0),
-                        Text('Tanggal Pengajuan: $formattedDate'),
-                        if (formattedReviewDate != null)
-                          Text('Tanggal Review: $formattedReviewDate'),
-                      ],
-                    ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              _buildCustomAppBar(),
+              Expanded(
+                child: FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: SlideTransition(
+                    position: _slideAnimation,
+                    child: _buildContent(),
                   ),
                 ),
-                const SizedBox(height: 16.0),
-
-                // User Details Card
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Detail Pengguna',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 8.0),
-                        _buildDetailRow('Nama Lengkap', _safeGetString(_submissionData!['userDetails'], 'fullName')),
-                        _buildDetailRow('Email', _safeGetString(_submissionData!['userDetails'], 'email')),
-                        _buildDetailRow('No. Telepon', _safeGetString(_submissionData!['userDetails'], 'phoneNumber')),
-                        _buildDetailRow('NIK', _safeGetString(_submissionData!['userDetails'], 'nik')),
-                        _buildDetailRow('Lokasi', _safeGetString(_submissionData!['userDetails'], 'location')),
-                        _buildDetailRow('Jenis Pekerjaan', _safeGetString(_submissionData!['userDetails'], 'jobType')),
-                        _buildDetailRow(
-                          'Penghasilan Bulanan', 
-                          _formatCurrency(_submissionData!['userDetails']['monthlyIncome'] ?? 0)
-                        ),
-                        _buildDetailRow('Status Akun', _safeGetString(_submissionData!['userDetails'], 'accountStatus')),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16.0),
-
-                // Program Details Card
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Detail Program',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 8.0),
-                        _buildDetailRow('Nama Program', _safeGetString(_submissionData!['programDetails'], 'programName')),
-                        _buildDetailRow('Penyelenggara', _safeGetString(_submissionData!['programDetails'], 'organizer')),
-                        _buildDetailRow('Kategori', _safeGetString(_submissionData!['programDetails'], 'category')),
-                        const SizedBox(height: 8.0),
-                        const Text('Deskripsi:', style: TextStyle(fontWeight: FontWeight.w500)),
-                        Text(_safeGetString(_submissionData!['programDetails'], 'description')),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16.0),
-
-                // Supporting Documents Card
-                _buildSupportingDocumentsSection(),
-                const SizedBox(height: 16.0),
-
-                // Admin Notes Card
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Catatan Admin',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 8.0),
-                        Text(_safeGetString(_submissionData, 'notes').isEmpty 
-                            ? 'Tidak ada catatan.' 
-                            : _safeGetString(_submissionData, 'notes')),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24.0),
-
-                // Action Buttons
-                if (_submissionData!['status'] == 'Baru' || _submissionData!['status'] == 'Diproses')
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: _isUpdating ? null : () => _updateSubmissionStatus('Disetujui'),
-                          icon: _isUpdating 
-                              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                              : const Icon(Icons.check_circle_outline, color: Colors.white),
-                          label: const Text('Setujui', style: TextStyle(color: Colors.white)),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16.0),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: _isUpdating ? null : () => _updateSubmissionStatus('Ditolak'),
-                          icon: _isUpdating 
-                              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                              : const Icon(Icons.cancel_outlined, color: Colors.white),
-                          label: const Text('Tolak', style: TextStyle(color: Colors.white)),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildDetailRow(String label, String? value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2.0),
+  Widget _buildCustomAppBar() {
+    return Container(
+      padding: const EdgeInsets.all(20),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 120,
-            child: Text(
-              '$label:',
-              style: const TextStyle(fontWeight: FontWeight.w500),
+          // Back Button
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+              onPressed: () => context.go(RouteNames.adminSubmissionManagement),
             ),
           ),
+          const SizedBox(width: 16),
+
+          // Title
           Expanded(
-            child: Text(value ?? 'N/A'),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Detail Pengajuan',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  _submissionData?['userName'] ?? '',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.8),
+                    fontSize: 14,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+
+          // Action Buttons
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.edit_rounded, color: Colors.white),
+              onPressed: _editSubmission,
+              tooltip: 'Edit Pengajuan',
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.red.withOpacity(0.8),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.delete_rounded, color: Colors.white),
+              onPressed: _deleteSubmission,
+              tooltip: 'Hapus Pengajuan',
+            ),
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildContent() {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(24),
+          topRight: Radius.circular(24),
+        ),
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          children: [
+            // Header Section
+            _buildHeaderSection(),
+            
+            // Details Tabs
+            _buildDetailsSection(),
+            
+            const SizedBox(height: 32),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeaderSection() {
+    final status = _submissionData!['status'] ?? 'pending';
+    final statusColor = _getStatusColor(status);
+    
+    return Container(
+      margin: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Status Badge
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: statusColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: statusColor),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(_getStatusIcon(status), size: 16, color: statusColor),
+                    const SizedBox(width: 6),
+                    Text(
+                      _getStatusDisplayName(status),
+                      style: TextStyle(
+                        color: statusColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Spacer(),
+              Text(
+                'ID: ${widget.submissionId.substring(0, 8)}...',
+                style: TextStyle(
+                  color: Colors.grey.shade600,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // User Info
+          Text(
+            _submissionData!['userName'] ?? 'N/A',
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _submissionData!['userEmail'] ?? 'N/A',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey.shade600,
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Program Info
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.blue.shade200),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.assignment_rounded, color: Colors.blue.shade600),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Program Bantuan',
+                        style: TextStyle(
+                          color: Colors.blue.shade600,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      Text(
+                        _submissionData!['programName'] ?? 'N/A',
+                        style: TextStyle(
+                          color: Colors.blue.shade800,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Date Info
+          Row(
+            children: [
+              Expanded(
+                child: _buildInfoItem(
+                  'Tanggal Pengajuan',
+                  _formatDate(_submissionData!['submissionDate']),
+                  Icons.calendar_today_rounded,
+                ),
+              ),
+              if (_submissionData!['reviewDate'] != null) ...[
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildInfoItem(
+                    'Tanggal Review',
+                    _formatDate(_submissionData!['reviewDate']),
+                    Icons.check_circle_rounded,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailsSection() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: DefaultTabController(
+        length: 3,
+        child: Column(
+          children: [
+            TabBar(
+              indicator: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.blue.shade600, Colors.blue.shade700],
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              indicatorSize: TabBarIndicatorSize.tab,
+              labelColor: Colors.white,
+              unselectedLabelColor: Colors.grey.shade600,
+              labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+              tabs: const [
+                Tab(icon: Icon(Icons.person_rounded, size: 18), text: 'Data Pemohon'),
+                Tab(icon: Icon(Icons.assignment_rounded, size: 18), text: 'Info Pengajuan'),
+                Tab(icon: Icon(Icons.attach_file_rounded, size: 18), text: 'Dokumen'),
+              ],
+            ),
+            SizedBox(
+              height: 400,
+              child: TabBarView(
+                children: [
+                  _buildApplicantTab(),
+                  _buildSubmissionTab(),
+                  _buildDocumentsTab(),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildApplicantTab() {
+    final userDetails = _submissionData!['userDetails'] as Map<String, dynamic>? ?? {};
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          _buildDetailCard('Nama Lengkap', userDetails['fullName'] ?? 'N/A', Icons.person_rounded),
+          _buildDetailCard('Email', userDetails['email'] ?? 'N/A', Icons.email_rounded),
+          _buildDetailCard('Nomor Telepon', userDetails['phoneNumber'] ?? 'N/A', Icons.phone_rounded),
+          _buildDetailCard('NIK', userDetails['nik'] ?? 'N/A', Icons.badge_rounded),
+          _buildDetailCard('Pekerjaan', userDetails['jobType'] ?? 'N/A', Icons.work_rounded),
+          _buildDetailCard('Penghasilan Bulanan', _formatCurrency(userDetails['monthlyIncome']), Icons.attach_money_rounded),
+          _buildDetailCard('Lokasi', userDetails['location'] ?? 'N/A', Icons.location_on_rounded),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSubmissionTab() {
+    final programDetails = _submissionData!['programDetails'] as Map<String, dynamic>? ?? {};
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          _buildDetailCard('Program', programDetails['programName'] ?? 'N/A', Icons.assignment_rounded),
+          _buildDetailCard('Penyelenggara', programDetails['organizer'] ?? 'N/A', Icons.business_rounded),
+          _buildDetailCard('Kategori', programDetails['category'] ?? 'N/A', Icons.category_rounded),
+          _buildDetailCard('Status Program', programDetails['status'] ?? 'N/A', Icons.info_rounded),
+          if (_submissionData!['notes'] != null && _submissionData!['notes'].isNotEmpty)
+            _buildDetailCard('Catatan Admin', _submissionData!['notes'], Icons.note_rounded),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDocumentsTab() {
+    final documents = _submissionData!['supportingDocuments'] as List<dynamic>? ?? [];
+
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: documents.isEmpty
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.description_outlined, size: 48, color: Colors.grey.shade400),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Tidak ada dokumen',
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    'Pemohon belum mengunggah dokumen pendukung',
+                    style: TextStyle(color: Colors.grey.shade500, fontSize: 14),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            )
+          : ListView.builder(
+              itemCount: documents.length,
+              itemBuilder: (context, index) {
+                final doc = documents[index] as Map<String, dynamic>;
+                return _buildDocumentCard(doc);
+              },
+            ),
+    );
+  }
+
+  Widget _buildDetailCard(String title, String content, IconData icon) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade100,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: Colors.blue.shade700, size: 20),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: Colors.grey.shade600,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  content,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDocumentCard(Map<String, dynamic> doc) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade100,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              _getDocumentIcon(doc['fileType'] ?? ''),
+              color: Colors.blue.shade700,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  doc['fileName'] ?? 'Dokumen',
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  doc['fileType'] ?? 'Unknown',
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: () {
+              // Open document
+            },
+            icon: Icon(Icons.visibility_rounded, color: Colors.blue.shade600),
+            tooltip: 'Lihat Dokumen',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoItem(String label, String value, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: Colors.grey.shade600),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: Colors.grey.shade600,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'disetujui': case 'approved': return Colors.green;
+      case 'ditolak': case 'rejected': return Colors.red;
+      case 'diproses': case 'reviewed': return Colors.blue;
+      case 'baru': case 'pending': return Colors.orange;
+      default: return Colors.grey;
+    }
+  }
+
+  IconData _getStatusIcon(String status) {
+    switch (status.toLowerCase()) {
+      case 'disetujui': case 'approved': return Icons.check_circle_rounded;
+      case 'ditolak': case 'rejected': return Icons.cancel_rounded;
+      case 'diproses': case 'reviewed': return Icons.visibility_rounded;
+      case 'baru': case 'pending': return Icons.schedule_rounded;
+      default: return Icons.help_rounded;
+    }
+  }
+
+  String _getStatusDisplayName(String status) {
+    switch (status.toLowerCase()) {
+      case 'approved': return 'Disetujui';
+      case 'rejected': return 'Ditolak';
+      case 'reviewed': return 'Diproses';
+      case 'pending': return 'Baru';
+      case 'disetujui': return 'Disetujui';
+      case 'ditolak': return 'Ditolak';
+      case 'diproses': return 'Diproses';
+      case 'baru': return 'Baru';
+      default: return status;
+    }
+  }
+
+  IconData _getDocumentIcon(String type) {
+    switch (type.toLowerCase()) {
+      case 'pdf': return Icons.picture_as_pdf_rounded;
+      case 'image': case 'jpg': case 'png': return Icons.image_rounded;
+      case 'doc': case 'docx': return Icons.description_rounded;
+      default: return Icons.attach_file_rounded;
+    }
+  }
+
+  String _formatDate(dynamic date) {
+    if (date == null) return 'N/A';
+    
+    try {
+      DateTime dateTime;
+      if (date is DateTime) {
+        dateTime = date;
+      } else if (date is Timestamp) {
+        dateTime = date.toDate();
+      } else {
+        return 'N/A';
+      }
+      
+      return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
+    } catch (e) {
+      return 'N/A';
+    }
+  }
+
+  String _formatCurrency(dynamic amount) {
+    if (amount == null) return 'N/A';
+    
+    try {
+      final number = amount is String ? double.parse(amount) : amount.toDouble();
+      return 'Rp ${number.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}';
+    } catch (e) {
+      return 'N/A';
+    }
   }
 }

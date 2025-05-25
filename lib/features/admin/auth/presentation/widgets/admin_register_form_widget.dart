@@ -52,40 +52,86 @@ class _AdminRegisterFormWidgetState extends State<AdminRegisterFormWidget> {
               password: _kataSandiController.text,
             );
 
-        // 2. Send email verification
-        await userCredential.user!.sendEmailVerification();
+        final user = userCredential.user;
+        if (user == null) {
+          throw Exception('Gagal membuat akun admin');
+        }
 
-        // 3. Store admin data in Firestore
+        // 2. Send email verification
+        await user.sendEmailVerification();
+
+        // 3. Store admin data in Firestore (using admin_profiles collection)
         await FirebaseFirestore.instance
-            .collection('admins')
-            .doc(userCredential.user!.uid)
+            .collection('admin_profiles')
+            .doc(user.uid)
             .set({
               'fullName': _namaLengkapController.text.trim(),
               'phoneNumber': _nomorTeleponController.text.trim(),
               'email': _emailController.text.trim(),
-              'role': 'admin', // Default role for new admins
+              'role': 'admin',
               'createdAt': FieldValue.serverTimestamp(),
               'updatedAt': FieldValue.serverTimestamp(),
-              'emailVerified': false, // Track verification status
+              'isActive': true,
+              'emailVerified': false,
             });
 
-        // 4. Show success message with verification instructions
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Registrasi berhasil! Silakan periksa email Anda untuk verifikasi.',
-            ),
-          ),
-        );
+        // 4. Update Firebase Auth display name
+        await user.updateDisplayName(_namaLengkapController.text.trim());
 
-        // 5. Navigate to admin login
+        // 5. Show success message
         if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Registrasi admin berhasil! Silakan periksa email Anda untuk verifikasi.',
+              ),
+              backgroundColor: Colors.green,
+            ),
+          );
+
+          // 6. Navigate to admin login
           context.go(RouteNames.adminLogin);
         }
       } on FirebaseAuthException catch (e) {
-        // Error handling code remains the same
+        String errorMessage;
+        switch (e.code) {
+          case 'email-already-in-use':
+            errorMessage = 'Email sudah terdaftar';
+            break;
+          case 'weak-password':
+            errorMessage = 'Password terlalu lemah (minimal 6 karakter)';
+            break;
+          case 'invalid-email':
+            errorMessage = 'Format email tidak valid';
+            break;
+          case 'operation-not-allowed':
+            errorMessage = 'Operasi tidak diizinkan';
+            break;
+          default:
+            errorMessage = 'Terjadi kesalahan: ${e.message}';
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(e.toString().replaceAll('Exception: ', '')),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
       }
-      // Rest of the method remains the same
     }
   }
 
@@ -96,7 +142,6 @@ class _AdminRegisterFormWidgetState extends State<AdminRegisterFormWidget> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          // Existing Name field
           TextFormField(
             controller: _namaLengkapController,
             decoration: const InputDecoration(
@@ -110,21 +155,24 @@ class _AdminRegisterFormWidgetState extends State<AdminRegisterFormWidget> {
               ),
             ),
             keyboardType: TextInputType.name,
+            enabled: !_isLoading,
             validator: (value) {
               if (value == null || value.isEmpty) {
                 return 'Nama Lengkap tidak boleh kosong';
+              }
+              if (value.trim().length < 3) {
+                return 'Nama Lengkap minimal 3 karakter';
               }
               return null;
             },
           ),
           const SizedBox(height: 16.0),
 
-          // Existing Phone field
           TextFormField(
             controller: _nomorTeleponController,
             decoration: const InputDecoration(
               labelText: 'Nomor Telepon',
-              hintText: 'Nomor Telepon Admin',
+              hintText: 'Contoh: 08123456789',
               filled: true,
               fillColor: Colors.white,
               border: OutlineInputBorder(
@@ -133,21 +181,24 @@ class _AdminRegisterFormWidgetState extends State<AdminRegisterFormWidget> {
               ),
             ),
             keyboardType: TextInputType.phone,
+            enabled: !_isLoading,
             validator: (value) {
               if (value == null || value.isEmpty) {
                 return 'Nomor Telepon tidak boleh kosong';
+              }
+              if (!value.startsWith('08') || value.length < 10) {
+                return 'Masukkan nomor telepon yang valid';
               }
               return null;
             },
           ),
           const SizedBox(height: 16.0),
 
-          // Existing Email field
           TextFormField(
             controller: _emailController,
             decoration: const InputDecoration(
               labelText: 'Email',
-              hintText: 'Email Admin',
+              hintText: 'contoh@email.com',
               filled: true,
               fillColor: Colors.white,
               border: OutlineInputBorder(
@@ -156,11 +207,12 @@ class _AdminRegisterFormWidgetState extends State<AdminRegisterFormWidget> {
               ),
             ),
             keyboardType: TextInputType.emailAddress,
+            enabled: !_isLoading,
             validator: (value) {
               if (value == null || value.isEmpty) {
                 return 'Email tidak boleh kosong';
               }
-              if (!value.contains('@')) {
+              if (!value.contains('@') || !value.contains('.')) {
                 return 'Masukkan email yang valid';
               }
               return null;
@@ -168,12 +220,11 @@ class _AdminRegisterFormWidgetState extends State<AdminRegisterFormWidget> {
           ),
           const SizedBox(height: 16.0),
 
-          // MISSING: Konfirmasi Email field
           TextFormField(
             controller: _konfirmasiEmailController,
             decoration: const InputDecoration(
               labelText: 'Konfirmasi Email',
-              hintText: 'Masukkan Email Lagi',
+              hintText: 'Masukkan email yang sama',
               filled: true,
               fillColor: Colors.white,
               border: OutlineInputBorder(
@@ -182,6 +233,7 @@ class _AdminRegisterFormWidgetState extends State<AdminRegisterFormWidget> {
               ),
             ),
             keyboardType: TextInputType.emailAddress,
+            enabled: !_isLoading,
             validator: (value) {
               if (value == null || value.isEmpty) {
                 return 'Konfirmasi Email tidak boleh kosong';
@@ -194,12 +246,11 @@ class _AdminRegisterFormWidgetState extends State<AdminRegisterFormWidget> {
           ),
           const SizedBox(height: 16.0),
 
-          // MISSING: Kata Sandi field
           TextFormField(
             controller: _kataSandiController,
             decoration: InputDecoration(
               labelText: 'Kata Sandi',
-              hintText: 'Masukkan Kata Sandi',
+              hintText: 'Masukkan Kata Sandi (minimal 6 karakter)',
               filled: true,
               fillColor: Colors.white,
               border: const OutlineInputBorder(
@@ -210,14 +261,18 @@ class _AdminRegisterFormWidgetState extends State<AdminRegisterFormWidget> {
                 icon: Icon(
                   _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
                 ),
-                onPressed: () {
-                  setState(() {
-                    _isPasswordVisible = !_isPasswordVisible;
-                  });
-                },
+                onPressed:
+                    _isLoading
+                        ? null
+                        : () {
+                          setState(() {
+                            _isPasswordVisible = !_isPasswordVisible;
+                          });
+                        },
               ),
             ),
             obscureText: !_isPasswordVisible,
+            enabled: !_isLoading,
             validator: (value) {
               if (value == null || value.isEmpty) {
                 return 'Kata Sandi tidak boleh kosong';
@@ -230,12 +285,11 @@ class _AdminRegisterFormWidgetState extends State<AdminRegisterFormWidget> {
           ),
           const SizedBox(height: 16.0),
 
-          // MISSING: Konfirmasi Kata Sandi field
           TextFormField(
             controller: _konfirmasiKataSandiController,
             decoration: InputDecoration(
               labelText: 'Konfirmasi Kata Sandi',
-              hintText: 'Masukkan Kata Sandi Lagi',
+              hintText: 'Masukkan kata sandi yang sama',
               filled: true,
               fillColor: Colors.white,
               border: const OutlineInputBorder(
@@ -248,14 +302,19 @@ class _AdminRegisterFormWidgetState extends State<AdminRegisterFormWidget> {
                       ? Icons.visibility
                       : Icons.visibility_off,
                 ),
-                onPressed: () {
-                  setState(() {
-                    _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
-                  });
-                },
+                onPressed:
+                    _isLoading
+                        ? null
+                        : () {
+                          setState(() {
+                            _isConfirmPasswordVisible =
+                                !_isConfirmPasswordVisible;
+                          });
+                        },
               ),
             ),
             obscureText: !_isConfirmPasswordVisible,
+            enabled: !_isLoading,
             validator: (value) {
               if (value == null || value.isEmpty) {
                 return 'Konfirmasi Kata Sandi tidak boleh kosong';
@@ -268,7 +327,6 @@ class _AdminRegisterFormWidgetState extends State<AdminRegisterFormWidget> {
           ),
           const SizedBox(height: 24.0),
 
-          // Existing Register button
           ElevatedButton(
             onPressed: _isLoading ? null : _register,
             style: ElevatedButton.styleFrom(
@@ -289,7 +347,21 @@ class _AdminRegisterFormWidgetState extends State<AdminRegisterFormWidget> {
             ),
             child:
                 _isLoading
-                    ? const CircularProgressIndicator(color: Colors.white)
+                    ? const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        ),
+                        SizedBox(width: 12),
+                        Text('Membuat Akun Admin...'),
+                      ],
+                    )
                     : const Text('Buat Akun Admin'),
           ),
         ],

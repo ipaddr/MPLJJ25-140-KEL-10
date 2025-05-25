@@ -30,67 +30,110 @@ class _AdminLoginFormWidgetState extends State<AdminLoginFormWidget> {
       setState(() {
         _isLoading = true;
       });
-      
+
       try {
         // 1. Authenticate with Firebase
-        final userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+        UserCredential userCredential = await FirebaseAuth.instance
+            .signInWithEmailAndPassword(
           email: _emailController.text.trim(),
           password: _passwordController.text,
         );
-        
-        // 2. Check if user is an admin by querying Firestore
-        final adminDoc = await FirebaseFirestore.instance
-            .collection('admins')
-            .doc(userCredential.user!.uid)
-            .get();
-        
-        if (!adminDoc.exists) {
-          // User is not an admin
-          await FirebaseAuth.instance.signOut();
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Anda tidak memiliki akses admin'))
-          );
-          setState(() {
-            _isLoading = false;
-          });
-          return;
-        }
-        
-        // 3. Update last login time
-        await FirebaseFirestore.instance
-            .collection('admins')
-            .doc(userCredential.user!.uid)
-            .update({
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
-        
-        // 4. Navigate to admin dashboard
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Login berhasil'))
-          );
-          context.go(RouteNames.adminDashboard);
+
+        User? user = userCredential.user;
+        if (user != null) {
+          // 2. Check if user exists in 'admin_profiles' collection
+          DocumentSnapshot adminDoc = await FirebaseFirestore.instance
+              .collection('admin_profiles')
+              .doc(user.uid)
+              .get();
+
+          if (adminDoc.exists) {
+            // Admin found in admin_profiles collection
+            Map<String, dynamic> adminData = adminDoc.data() as Map<String, dynamic>;
+            
+            // 3. Check if admin account is active
+            bool isActive = adminData['isActive'] ?? true;
+            if (!isActive) {
+              await FirebaseAuth.instance.signOut();
+              throw Exception('Akun admin Anda tidak aktif. Hubungi super admin.');
+            }
+
+            // 4. Update last login timestamp
+            await FirebaseFirestore.instance
+                .collection('admin_profiles')
+                .doc(user.uid)
+                .update({
+              'lastLogin': FieldValue.serverTimestamp(),
+            });
+
+            // 5. Navigate to admin dashboard
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Login admin berhasil!'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+              context.go(RouteNames.adminDashboard);
+            }
+          } else {
+            // Check if this email belongs to a regular user
+            DocumentSnapshot userDoc = await FirebaseFirestore.instance
+                .collection('users')
+                .doc(user.uid)
+                .get();
+
+            if (userDoc.exists) {
+              await FirebaseAuth.instance.signOut();
+              throw Exception('Gunakan halaman login user untuk akun ini.');
+            } else {
+              await FirebaseAuth.instance.signOut();
+              throw Exception('Data admin tidak ditemukan.');
+            }
+          }
         }
       } on FirebaseAuthException catch (e) {
-        String errorMessage = 'Terjadi kesalahan saat login.';
-        
-        if (e.code == 'user-not-found') {
-          errorMessage = 'Email tidak terdaftar.';
-        } else if (e.code == 'wrong-password') {
-          errorMessage = 'Password salah.';
-        } else if (e.code == 'invalid-email') {
-          errorMessage = 'Format email tidak valid.';
-        } else if (e.code == 'user-disabled') {
-          errorMessage = 'Akun ini telah dinonaktifkan.';
+        String errorMessage;
+        switch (e.code) {
+          case 'user-not-found':
+            errorMessage = 'Email admin tidak terdaftar.';
+            break;
+          case 'wrong-password':
+            errorMessage = 'Password salah.';
+            break;
+          case 'invalid-email':
+            errorMessage = 'Format email tidak valid.';
+            break;
+          case 'user-disabled':
+            errorMessage = 'Akun admin telah dinonaktifkan.';
+            break;
+          case 'too-many-requests':
+            errorMessage = 'Terlalu banyak percobaan login. Coba lagi nanti.';
+            break;
+          case 'invalid-credential':
+            errorMessage = 'Email atau password salah.';
+            break;
+          default:
+            errorMessage = 'Terjadi kesalahan: ${e.message}';
         }
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(errorMessage))
-        );
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(errorMessage),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString()}'))
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(e.toString().replaceAll('Exception: ', '')),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       } finally {
         if (mounted) {
           setState(() {
@@ -112,7 +155,7 @@ class _AdminLoginFormWidgetState extends State<AdminLoginFormWidget> {
             controller: _emailController,
             decoration: InputDecoration(
               prefixIcon: const Icon(Icons.email),
-              hintText: 'Email',
+              hintText: 'Email Admin',
               filled: true,
               fillColor: Colors.white.withOpacity(0.8),
               border: OutlineInputBorder(
@@ -126,8 +169,9 @@ class _AdminLoginFormWidgetState extends State<AdminLoginFormWidget> {
               isDense: true,
             ),
             keyboardType: TextInputType.emailAddress,
+            enabled: !_isLoading,
             validator: (value) {
-              if (value == null || value.isEmpty) {
+              if (value == null || value.trim().isEmpty) {
                 return 'Email tidak boleh kosong';
               }
               if (!value.contains('@')) {
@@ -145,7 +189,7 @@ class _AdminLoginFormWidgetState extends State<AdminLoginFormWidget> {
                 icon: Icon(
                   _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
                 ),
-                onPressed: () {
+                onPressed: _isLoading ? null : () {
                   setState(() {
                     _isPasswordVisible = !_isPasswordVisible;
                   });
@@ -165,9 +209,13 @@ class _AdminLoginFormWidgetState extends State<AdminLoginFormWidget> {
               isDense: true,
             ),
             obscureText: !_isPasswordVisible,
+            enabled: !_isLoading,
             validator: (value) {
               if (value == null || value.isEmpty) {
-                return 'Kata Sandi tidak boleh kosong';
+                return 'Password tidak boleh kosong';
+              }
+              if (value.length < 6) {
+                return 'Password minimal 6 karakter';
               }
               return null;
             },
@@ -187,13 +235,23 @@ class _AdminLoginFormWidgetState extends State<AdminLoginFormWidget> {
               ),
               textStyle: const TextStyle(
                 fontFamily: 'Poppins',
-                fontSize: 16.0,
+                fontSize: 18.0,
                 fontWeight: FontWeight.normal,
               ),
             ),
-            child: _isLoading 
-                ? const CircularProgressIndicator(color: Colors.white)
-                : const Text('Masuk Admin'),
+            child: _isLoading
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                : const Text(
+                    'Masuk sebagai Admin',
+                    style: TextStyle(fontWeight: FontWeight.normal),
+                  ),
           ),
         ],
       ),
