@@ -1,61 +1,57 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:developer' as developer;
 
+/// Service for managing user data in admin module
+///
+/// Provides methods for retrieving, updating, and managing users
+/// with support for both legacy and new field names
 class AdminUserService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  // Removed unused _auth field
 
-  // Valid status values - disesuaikan dengan UI baru
+  // Constants for valid field values
   static const List<String> validStatuses = ['active', 'inactive', 'suspended'];
-
-  // Valid role values - ditambahkan untuk UI baru
   static const List<String> validRoles = ['user', 'admin'];
 
-  // Safe conversion helper methods
+  // Collection reference
+  CollectionReference<Map<String, dynamic>> get _usersCollection => 
+      _firestore.collection('users');
+
+  /// Safe conversion from dynamic to int
   static int _safeParseInt(dynamic value) {
     if (value == null) return 0;
     if (value is int) return value;
-    if (value is String) {
-      return int.tryParse(value) ?? 0;
-    }
+    if (value is String) return int.tryParse(value) ?? 0;
     if (value is double) return value.toInt();
     return 0;
   }
 
+  /// Safe conversion from dynamic to String
   static String _safeParseString(dynamic value) {
     if (value == null) return '';
     return value.toString();
   }
 
+  /// Safe conversion from dynamic to bool
   static bool _safeParseBool(dynamic value) {
     if (value == null) return false;
     if (value is bool) return value;
-    if (value is String) {
-      return value.toLowerCase() == 'true';
-    }
+    if (value is String) return value.toLowerCase() == 'true';
     return false;
   }
 
-  // Safe status parsing with validation
+  /// Safe parsing for status with validation
   static String _safeParseStatus(dynamic value) {
     final status = _safeParseString(value);
-    if (status.isEmpty || !validStatuses.contains(status)) {
-      return 'active'; // Default status
-    }
-    return status;
+    return validStatuses.contains(status) ? status : 'active';
   }
 
-  // Safe role parsing with validation
+  /// Safe parsing for role with validation
   static String _safeParseRole(dynamic value) {
     final role = _safeParseString(value);
-    if (role.isEmpty || !validRoles.contains(role)) {
-      return 'user'; // Default role
-    }
-    return role;
+    return validRoles.contains(role) ? role : 'user';
   }
 
-  // Safe DateTime parsing
+  /// Safe parsing for DateTime from various formats
   static DateTime? _safeParseDateTime(dynamic value) {
     if (value == null) return null;
     if (value is Timestamp) return value.toDate();
@@ -63,107 +59,111 @@ class AdminUserService {
     return null;
   }
 
-  // Get all users
-  Future<List<Map<String, dynamic>>> getAllUsers() async {
+  /// Maps document data to standardized user object
+  Map<String, dynamic> _mapDocToUserObject(String id, Map<String, dynamic> data) {
+    return {
+      'id': id,
+      'fullName': _safeParseString(data['fullName']),
+      'email': _safeParseString(data['email']),
+      'phoneNumber': _safeParseString(data['phoneNumber']),
+      'address': _safeParseString(data['address'] ?? data['location']),
+      'occupation': _safeParseString(data['occupation'] ?? data['jobType']),
+      'monthlyIncome': _safeParseInt(data['monthlyIncome']),
+      'gender': _safeParseString(data['gender']),
+      'birthDate': _safeParseDateTime(data['birthDate']),
+      'emergencyContactName': _safeParseString(data['emergencyContactName']),
+      'emergencyContactPhone': _safeParseString(data['emergencyContactPhone']),
+      'status': _safeParseStatus(data['status'] ?? data['accountStatus']),
+      'role': _safeParseRole(data['role']),
+      'profilePictureUrl': _safeParseString(data['profilePictureUrl']),
+      'createdAt': data['createdAt'] as Timestamp?,
+      'updatedAt': data['updatedAt'] as Timestamp?,
+      'lastLogin': data['lastLogin'] as Timestamp?,
+      'emailVerified': _safeParseBool(data['emailVerified']),
+
+      // Legacy fields for backward compatibility
+      'location': _safeParseString(data['location']),
+      'nik': _safeParseString(data['nik']),
+      'jobType': _safeParseString(data['jobType']),
+      'accountStatus': _safeParseStatus(data['accountStatus']),
+      'ktpPictureUrl': _safeParseString(data['ktpPictureUrl']),
+    };
+  }
+
+  /// Handle operation errors consistently
+  void _logError(String operation, Object error) {
+    developer.log('Error $operation: $error', name: 'AdminUserService');
+  }
+
+  /// Get all users with optional sorting
+  Future<List<Map<String, dynamic>>> getAllUsers({
+    String sortBy = 'createdAt',
+    bool descending = true,
+  }) async {
     try {
-      final querySnapshot = await _firestore
-          .collection('users')
-          .orderBy('createdAt', descending: true)
+      final querySnapshot = await _usersCollection
+          .orderBy(sortBy, descending: descending)
           .get();
 
-      return querySnapshot.docs.map((doc) {
-        final data = doc.data();
-        return {
-          'id': doc.id,
-          'fullName': _safeParseString(data['fullName']),
-          'email': _safeParseString(data['email']),
-          'phoneNumber': _safeParseString(data['phoneNumber']),
-          'address': _safeParseString(
-            data['address'] ?? data['location'],
-          ), // Support both field names
-          'occupation': _safeParseString(
-            data['occupation'] ?? data['jobType'],
-          ), // Support both field names
-          'monthlyIncome': _safeParseInt(data['monthlyIncome']),
-          'gender': _safeParseString(data['gender']),
-          'birthDate': _safeParseDateTime(data['birthDate']),
-          'emergencyContactName': _safeParseString(
-            data['emergencyContactName'],
-          ),
-          'emergencyContactPhone': _safeParseString(
-            data['emergencyContactPhone'],
-          ),
-          'status': _safeParseStatus(
-            data['status'] ?? data['accountStatus'],
-          ), // Support both field names
-          'role': _safeParseRole(data['role']),
-          'profilePictureUrl': _safeParseString(data['profilePictureUrl']),
-          'createdAt': data['createdAt'] as Timestamp?,
-          'updatedAt': data['updatedAt'] as Timestamp?,
-          'lastLogin': data['lastLogin'] as Timestamp?,
-          'emailVerified': _safeParseBool(data['emailVerified']),
-
-          // Legacy fields for backward compatibility
-          'location': _safeParseString(data['location']),
-          'nik': _safeParseString(data['nik']),
-          'jobType': _safeParseString(data['jobType']),
-          'accountStatus': _safeParseStatus(data['accountStatus']),
-          'ktpPictureUrl': _safeParseString(data['ktpPictureUrl']),
-        };
-      }).toList();
+      return querySnapshot.docs
+          .map((doc) => _mapDocToUserObject(doc.id, doc.data()))
+          .toList();
     } catch (e) {
-      developer.log('Error getting users: $e', name: 'AdminUserService');
+      _logError('getting users', e);
       return [];
     }
   }
 
-  // Get user by ID - disesuaikan dengan field baru
+  /// Get user by ID
   Future<Map<String, dynamic>?> getUserById(String userId) async {
     try {
-      final doc = await _firestore.collection('users').doc(userId).get();
-
+      final doc = await _usersCollection.doc(userId).get();
+      
       if (doc.exists) {
-        final data = doc.data()!;
-        return {
-          'id': doc.id,
-          'fullName': _safeParseString(data['fullName']),
-          'email': _safeParseString(data['email']),
-          'phoneNumber': _safeParseString(data['phoneNumber']),
-          'address': _safeParseString(data['address'] ?? data['location']),
-          'occupation': _safeParseString(data['occupation'] ?? data['jobType']),
-          'monthlyIncome': _safeParseInt(data['monthlyIncome']),
-          'gender': _safeParseString(data['gender']),
-          'birthDate': _safeParseDateTime(data['birthDate']),
-          'emergencyContactName': _safeParseString(
-            data['emergencyContactName'],
-          ),
-          'emergencyContactPhone': _safeParseString(
-            data['emergencyContactPhone'],
-          ),
-          'status': _safeParseStatus(data['status'] ?? data['accountStatus']),
-          'role': _safeParseRole(data['role']),
-          'profilePictureUrl': _safeParseString(data['profilePictureUrl']),
-          'createdAt': data['createdAt'] as Timestamp?,
-          'updatedAt': data['updatedAt'] as Timestamp?,
-          'lastLogin': data['lastLogin'] as Timestamp?,
-          'emailVerified': _safeParseBool(data['emailVerified']),
-
-          // Legacy fields for backward compatibility
-          'location': _safeParseString(data['location']),
-          'nik': _safeParseString(data['nik']),
-          'jobType': _safeParseString(data['jobType']),
-          'accountStatus': _safeParseStatus(data['accountStatus']),
-          'ktpPictureUrl': _safeParseString(data['ktpPictureUrl']),
-        };
+        return _mapDocToUserObject(doc.id, doc.data()!);
       }
       return null;
     } catch (e) {
-      developer.log('Error getting user: $e', name: 'AdminUserService');
+      _logError('getting user', e);
       return null;
     }
   }
 
-  // Update user data - simplified method signature for UI compatibility
+  /// Update user data with flexible fields
+  Future<bool> updateUserData(String userId, Map<String, dynamic> userData) async {
+    try {
+      // Validate status if provided
+      if (userData.containsKey('status') &&
+          !validStatuses.contains(userData['status'])) {
+        _logError('updating user', 'Invalid status: ${userData['status']}');
+        return false;
+      }
+
+      // Validate role if provided
+      if (userData.containsKey('role') &&
+          !validRoles.contains(userData['role'])) {
+        _logError('updating user', 'Invalid role: ${userData['role']}');
+        return false;
+      }
+
+      // Always set updatedAt timestamp
+      userData['updatedAt'] = FieldValue.serverTimestamp();
+
+      // Convert DateTime to Timestamp if needed
+      if (userData.containsKey('birthDate') &&
+          userData['birthDate'] is DateTime) {
+        userData['birthDate'] = Timestamp.fromDate(userData['birthDate']);
+      }
+
+      await _usersCollection.doc(userId).update(userData);
+      return true;
+    } catch (e) {
+      _logError('updating user data', e);
+      return false;
+    }
+  }
+
+  /// Update basic user information
   Future<bool> updateUser({
     required String userId,
     required String displayName,
@@ -173,70 +173,23 @@ class AdminUserService {
     required String role,
     required String status,
   }) async {
-    try {
-      // Validate status and role
-      if (!validStatuses.contains(status)) {
-        developer.log('Invalid status: $status', name: 'AdminUserService');
-        return false;
-      }
-
-      if (!validRoles.contains(role)) {
-        developer.log('Invalid role: $role', name: 'AdminUserService');
-        return false;
-      }
-
-      await _firestore.collection('users').doc(userId).update({
-        'fullName': displayName.trim(),
-        'email': email.trim(),
-        'phoneNumber': phoneNumber.trim(),
-        'address': address.trim(),
-        'role': role,
-        'status': status,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-
-      return true;
-    } catch (e) {
-      developer.log('Error updating user: $e', name: 'AdminUserService');
+    // Validation
+    if (!validStatuses.contains(status) || !validRoles.contains(role)) {
+      _logError('updating user', 'Invalid status: $status or role: $role');
       return false;
     }
+
+    return updateUserData(userId, {
+      'fullName': displayName.trim(),
+      'email': email.trim(),
+      'phoneNumber': phoneNumber.trim(),
+      'address': address.trim(),
+      'role': role,
+      'status': status,
+    });
   }
 
-  // Update user data - method baru yang fleksibel untuk UI baru
-  Future<bool> updateUserData(String userId, Map<String, dynamic> userData) async {
-    try {
-      // Validate status and role if provided
-      if (userData.containsKey('status') &&
-          !validStatuses.contains(userData['status'])) {
-        developer.log('Invalid status: ${userData['status']}', name: 'AdminUserService');
-        return false;
-      }
-
-      if (userData.containsKey('role') &&
-          !validRoles.contains(userData['role'])) {
-        developer.log('Invalid role: ${userData['role']}', name: 'AdminUserService');
-        return false;
-      }
-
-      // Ensure updatedAt is always set
-      userData['updatedAt'] = FieldValue.serverTimestamp();
-
-      // Convert DateTime to Timestamp if needed
-      if (userData.containsKey('birthDate') &&
-          userData['birthDate'] is DateTime) {
-        userData['birthDate'] = Timestamp.fromDate(userData['birthDate']);
-      }
-
-      await _firestore.collection('users').doc(userId).update(userData);
-
-      return true;
-    } catch (e) {
-      developer.log('Error updating user: $e', name: 'AdminUserService');
-      return false;
-    }
-  }
-
-  // Legacy update method - untuk backward compatibility
+  /// Legacy update method for backward compatibility
   Future<bool> updateUserLegacy({
     required String userId,
     required String fullName,
@@ -248,234 +201,124 @@ class AdminUserService {
     required int monthlyIncome,
     required String accountStatus,
   }) async {
-    try {
-      // Validate status before updating
-      if (!validStatuses.contains(accountStatus)) {
-        developer.log('Invalid status: $accountStatus', name: 'AdminUserService');
-        return false;
-      }
-
-      await _firestore.collection('users').doc(userId).update({
-        'fullName': fullName.trim(),
-        'email': email.trim(),
-        'phoneNumber': phoneNumber.trim(),
-        'location': location.trim(),
-        'address': location.trim(), // Also update new field name
-        'nik': nik.trim(),
-        'jobType': jobType.trim(),
-        'occupation': jobType.trim(), // Also update new field name
-        'monthlyIncome': monthlyIncome,
-        'accountStatus': accountStatus,
-        'status': accountStatus, // Also update new field name
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-
-      return true;
-    } catch (e) {
-      developer.log('Error updating user: $e', name: 'AdminUserService');
+    if (!validStatuses.contains(accountStatus)) {
+      _logError('updating user legacy', 'Invalid status: $accountStatus');
       return false;
     }
+
+    return updateUserData(userId, {
+      'fullName': fullName.trim(),
+      'email': email.trim(),
+      'phoneNumber': phoneNumber.trim(),
+      'location': location.trim(),
+      'address': location.trim(),
+      'nik': nik.trim(),
+      'jobType': jobType.trim(),
+      'occupation': jobType.trim(),
+      'monthlyIncome': monthlyIncome,
+      'accountStatus': accountStatus,
+      'status': accountStatus,
+    });
   }
 
-  // Update user status only
+  /// Update user status only
   Future<bool> updateUserStatus({
     required String userId,
     required String newStatus,
   }) async {
-    try {
-      // Validate status before updating
-      if (!validStatuses.contains(newStatus)) {
-        developer.log('Invalid status: $newStatus', name: 'AdminUserService');
-        return false;
-      }
-
-      await _firestore.collection('users').doc(userId).update({
-        'status': newStatus,
-        'accountStatus': newStatus, // Also update legacy field
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-
-      return true;
-    } catch (e) {
-      developer.log('Error updating user status: $e', name: 'AdminUserService');
-      return false;
-    }
+    return updateUserData(userId, {
+      'status': newStatus,
+      'accountStatus': newStatus, // Support legacy field
+    });
   }
 
-  // Update user role
+  /// Update user role
   Future<bool> updateUserRole({
     required String userId,
     required String newRole,
   }) async {
-    try {
-      // Validate role before updating
-      if (!validRoles.contains(newRole)) {
-        developer.log('Invalid role: $newRole', name: 'AdminUserService');
-        return false;
-      }
-
-      await _firestore.collection('users').doc(userId).update({
-        'role': newRole,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-
-      return true;
-    } catch (e) {
-      developer.log('Error updating user role: $e', name: 'AdminUserService');
-      return false;
-    }
+    return updateUserData(userId, {
+      'role': newRole,
+    });
   }
 
-  // Delete user (also delete from Firebase Auth)
+  /// Delete user document
   Future<bool> deleteUser(String userId) async {
     try {
-      // Delete user document from Firestore
-      await _firestore.collection('users').doc(userId).delete();
-
-      // Note: Deleting from Firebase Auth requires admin SDK or the user to be currently signed in
-      // For this implementation, we'll only delete from Firestore
-      // In production, you might want to use Firebase Admin SDK or mark the user as deleted
-
+      await _usersCollection.doc(userId).delete();
       return true;
     } catch (e) {
-      developer.log('Error deleting user: $e', name: 'AdminUserService');
+      _logError('deleting user', e);
       return false;
     }
   }
 
-  // Get users by status
+  /// Get users filtered by status
   Future<List<Map<String, dynamic>>> getUsersByStatus(String status) async {
+    if (!validStatuses.contains(status)) {
+      _logError('getting users by status', 'Invalid status: $status');
+      return [];
+    }
+
     try {
-      // Validate status
-      if (!validStatuses.contains(status)) {
-        developer.log('Invalid status for filtering: $status', name: 'AdminUserService');
-        return [];
-      }
+      // Efficiently combine queries with Promise.all pattern
+      final results = await Future.wait([
+        _usersCollection.where('status', isEqualTo: status).get(),
+        _usersCollection.where('accountStatus', isEqualTo: status).get(),
+      ]);
 
-      // Query both old and new status field names
-      final querySnapshot1 = await _firestore
-          .collection('users')
-          .where('status', isEqualTo: status)
-          .orderBy('createdAt', descending: true)
-          .get();
-
-      final querySnapshot2 = await _firestore
-          .collection('users')
-          .where('accountStatus', isEqualTo: status)
-          .orderBy('createdAt', descending: true)
-          .get();
-
-      // Combine and deduplicate results
-      final userIds = <String>{};
-      final users = <Map<String, dynamic>>[];
-
-      for (final doc in [...querySnapshot1.docs, ...querySnapshot2.docs]) {
-        if (!userIds.contains(doc.id)) {
-          userIds.add(doc.id);
-          final data = doc.data();
-          users.add({
-            'id': doc.id,
-            'fullName': _safeParseString(data['fullName']),
-            'email': _safeParseString(data['email']),
-            'phoneNumber': _safeParseString(data['phoneNumber']),
-            'address': _safeParseString(data['address'] ?? data['location']),
-            'occupation': _safeParseString(
-              data['occupation'] ?? data['jobType'],
-            ),
-            'monthlyIncome': _safeParseInt(data['monthlyIncome']),
-            'gender': _safeParseString(data['gender']),
-            'birthDate': _safeParseDateTime(data['birthDate']),
-            'emergencyContactName': _safeParseString(
-              data['emergencyContactName'],
-            ),
-            'emergencyContactPhone': _safeParseString(
-              data['emergencyContactPhone'],
-            ),
-            'status': _safeParseStatus(data['status'] ?? data['accountStatus']),
-            'role': _safeParseRole(data['role']),
-            'profilePictureUrl': _safeParseString(data['profilePictureUrl']),
-            'createdAt': data['createdAt'] as Timestamp?,
-            'updatedAt': data['updatedAt'] as Timestamp?,
-            'lastLogin': data['lastLogin'] as Timestamp?,
-            'emailVerified': _safeParseBool(data['emailVerified']),
-          });
+      final userDocs = [...results[0].docs, ...results[1].docs];
+      
+      // Deduplicate users by ID
+      final Map<String, Map<String, dynamic>> uniqueUsers = {};
+      
+      for (final doc in userDocs) {
+        if (!uniqueUsers.containsKey(doc.id)) {
+          uniqueUsers[doc.id] = _mapDocToUserObject(doc.id, doc.data());
         }
       }
-
-      return users;
+      
+      return uniqueUsers.values.toList();
     } catch (e) {
-      developer.log('Error getting users by status: $e', name: 'AdminUserService');
+      _logError('getting users by status', e);
       return [];
     }
   }
 
-  // Get users by location/address
+  /// Get users filtered by location/address
   Future<List<Map<String, dynamic>>> getUsersByLocation(String location) async {
     try {
-      // Query both old and new address field names
-      final querySnapshot1 = await _firestore
-          .collection('users')
-          .where('address', isEqualTo: location)
-          .orderBy('createdAt', descending: true)
-          .get();
+      final results = await Future.wait([
+        _usersCollection.where('address', isEqualTo: location).get(),
+        _usersCollection.where('location', isEqualTo: location).get(),
+      ]);
 
-      final querySnapshot2 = await _firestore
-          .collection('users')
-          .where('location', isEqualTo: location)
-          .orderBy('createdAt', descending: true)
-          .get();
-
-      // Combine and deduplicate results
-      final userIds = <String>{};
-      final users = <Map<String, dynamic>>[];
-
-      for (final doc in [...querySnapshot1.docs, ...querySnapshot2.docs]) {
-        if (!userIds.contains(doc.id)) {
-          userIds.add(doc.id);
-          final data = doc.data();
-          users.add({
-            'id': doc.id,
-            'fullName': _safeParseString(data['fullName']),
-            'email': _safeParseString(data['email']),
-            'phoneNumber': _safeParseString(data['phoneNumber']),
-            'address': _safeParseString(data['address'] ?? data['location']),
-            'occupation': _safeParseString(
-              data['occupation'] ?? data['jobType'],
-            ),
-            'monthlyIncome': _safeParseInt(data['monthlyIncome']),
-            'gender': _safeParseString(data['gender']),
-            'birthDate': _safeParseDateTime(data['birthDate']),
-            'emergencyContactName': _safeParseString(
-              data['emergencyContactName'],
-            ),
-            'emergencyContactPhone': _safeParseString(
-              data['emergencyContactPhone'],
-            ),
-            'status': _safeParseStatus(data['status'] ?? data['accountStatus']),
-            'role': _safeParseRole(data['role']),
-            'profilePictureUrl': _safeParseString(data['profilePictureUrl']),
-            'createdAt': data['createdAt'] as Timestamp?,
-            'updatedAt': data['updatedAt'] as Timestamp?,
-            'lastLogin': data['lastLogin'] as Timestamp?,
-            'emailVerified': _safeParseBool(data['emailVerified']),
-          });
+      final userDocs = [...results[0].docs, ...results[1].docs];
+      
+      // Deduplicate users by ID
+      final Map<String, Map<String, dynamic>> uniqueUsers = {};
+      
+      for (final doc in userDocs) {
+        if (!uniqueUsers.containsKey(doc.id)) {
+          uniqueUsers[doc.id] = _mapDocToUserObject(doc.id, doc.data());
         }
       }
-
-      return users;
+      
+      return uniqueUsers.values.toList();
     } catch (e) {
-      developer.log('Error getting users by location: $e', name: 'AdminUserService');
+      _logError('getting users by location', e);
       return [];
     }
   }
 
-  // Get unique locations for filter
+  /// Get unique locations for filter dropdown
   Future<List<String>> getUserLocations() async {
     try {
-      final querySnapshot = await _firestore.collection('''
-users''').get();
-
+      final querySnapshot = await _usersCollection.get();
+      
+      // Use Set for efficient deduplication
       final locations = <String>{};
+      
       for (final doc in querySnapshot.docs) {
         final data = doc.data();
         final address = _safeParseString(data['address']);
@@ -485,41 +328,30 @@ users''').get();
         if (location.isNotEmpty) locations.add(location);
       }
 
-      // Fixed: Removed unnecessary .toList() call
       final result = ['Semua Lokasi', ...locations];
-      result.sort(
-        (a, b) => a == 'Semua Lokasi'
-            ? -1
-            : b == 'Semua Lokasi'
-                ? 1
-                : a.compareTo(b),
+      
+      // Sort with "Semua Lokasi" always first
+      result.sort((a, b) => 
+        a == 'Semua Lokasi' ? -1 : 
+        b == 'Semua Lokasi' ? 1 : 
+        a.compareTo(b)
       );
+      
       return result;
     } catch (e) {
-      developer.log('Error getting user locations: $e', name: 'AdminUserService');
+      _logError('getting user locations', e);
       return ['Semua Lokasi'];
     }
   }
 
-  // Get users count by status
+  /// Get number of users by status
   Future<Map<String, int>> getUsersCountByStatus() async {
     try {
+      // Parallel queries for better performance
       final results = await Future.wait([
-        _firestore
-            .collection('users')
-            .where('status', isEqualTo: 'active')
-            .count()
-            .get(),
-        _firestore
-            .collection('users')
-            .where('status', isEqualTo: 'inactive')
-            .count()
-            .get(),
-        _firestore
-            .collection('users')
-            .where('status', isEqualTo: 'suspended')
-            .count()
-            .get(),
+        _usersCollection.where('status', isEqualTo: 'active').count().get(),
+        _usersCollection.where('status', isEqualTo: 'inactive').count().get(),
+        _usersCollection.where('status', isEqualTo: 'suspended').count().get(),
       ]);
 
       return {
@@ -528,120 +360,91 @@ users''').get();
         'suspended': results[2].count ?? 0,
       };
     } catch (e) {
-      developer.log('Error getting users count: $e', name: 'AdminUserService');
+      _logError('getting users count', e);
       return {'active': 0, 'inactive': 0, 'suspended': 0};
     }
   }
 
-  // Search users by name or email
+  /// Search users by name or email
   Future<List<Map<String, dynamic>>> searchUsers(String searchTerm) async {
+    if (searchTerm.isEmpty) {
+      return getAllUsers();
+    }
+    
     try {
       final lowercaseSearch = searchTerm.toLowerCase();
-
+      
       // Get all users and filter client-side (Firestore doesn't support case-insensitive search)
-      final querySnapshot = await _firestore
-          .collection('users')
+      final querySnapshot = await _usersCollection
           .orderBy('createdAt', descending: true)
           .get();
 
-      final filteredUsers = querySnapshot.docs.where((doc) {
-        final data = doc.data();
-        final fullName = _safeParseString(data['fullName']).toLowerCase();
-        final email = _safeParseString(data['email']).toLowerCase();
-
-        return fullName.contains(lowercaseSearch) ||
-            email.contains(lowercaseSearch);
-      }).toList();
-
-      return filteredUsers.map((doc) {
-        final data = doc.data();
-        return {
-          'id': doc.id,
-          'fullName': _safeParseString(data['fullName']),
-          'email': _safeParseString(data['email']),
-          'phoneNumber': _safeParseString(data['phoneNumber']),
-          'address': _safeParseString(data['address'] ?? data['location']),
-          'occupation': _safeParseString(data['occupation'] ?? data['jobType']),
-          'monthlyIncome': _safeParseInt(data['monthlyIncome']),
-          'gender': _safeParseString(data['gender']),
-          'birthDate': _safeParseDateTime(data['birthDate']),
-          'emergencyContactName': _safeParseString(
-            data['emergencyContactName'],
-          ),
-          'emergencyContactPhone': _safeParseString(
-            data['emergencyContactPhone'],
-          ),
-          'status': _safeParseStatus(data['status'] ?? data['accountStatus']),
-          'role': _safeParseRole(data['role']),
-          'profilePictureUrl': _safeParseString(data['profilePictureUrl']),
-          'createdAt': data['createdAt'] as Timestamp?,
-          'updatedAt': data['updatedAt'] as Timestamp?,
-          'lastLogin': data['lastLogin'] as Timestamp?,
-          'emailVerified': _safeParseBool(data['emailVerified']),
-        };
-      }).toList();
+      return querySnapshot.docs
+          .where((doc) {
+            final data = doc.data();
+            final fullName = _safeParseString(data['fullName']).toLowerCase();
+            final email = _safeParseString(data['email']).toLowerCase();
+            return fullName.contains(lowercaseSearch) || 
+                  email.contains(lowercaseSearch);
+          })
+          .map((doc) => _mapDocToUserObject(doc.id, doc.data()))
+          .toList();
     } catch (e) {
-      developer.log('Error searching users: $e', name: 'AdminUserService');
+      _logError('searching users', e);
       return [];
     }
   }
 
-  // Get users with applications count
+  /// Get users with their application counts
   Future<List<Map<String, dynamic>>> getUsersWithApplicationsCount() async {
     try {
       final users = await getAllUsers();
 
-      // Get application counts for each user
-      for (var user in users) {
+      // Add application counts in parallel
+      final userFutures = users.map((user) async {
         final applicationsSnapshot = await _firestore
-            .collection('applications')
-            .where('userId', isEqualTo: user['id'])
-            .count()
-            .get();
+          .collection('applications')
+          .where('userId', isEqualTo: user['id'])
+          .count()
+          .get();
 
         user['totalApplications'] = applicationsSnapshot.count ?? 0;
-      }
+        return user;
+      });
 
-      return users;
+      return await Future.wait(userFutures);
     } catch (e) {
-      developer.log('Error getting users with applications count: $e', name: 'AdminUserService');
+      _logError('getting users with applications count', e);
       return [];
     }
   }
 
-  // Migrate old field names to new ones
+  /// Migrate legacy field names to new ones
   Future<void> migrateUserFields() async {
     try {
-      final querySnapshot = await _firestore.collection('users').get();
-
+      final querySnapshot = await _usersCollection.get();
+      
       for (final doc in querySnapshot.docs) {
         final data = doc.data();
         final updates = <String, dynamic>{};
 
-        // Migrate location to address
-        if (data.containsKey('location') && !data.containsKey('address')) {
-          updates['address'] = data['location'];
-        }
+        // Field mappings to check and update
+        final fieldMappings = {
+          'location': 'address',
+          'jobType': 'occupation',
+          'accountStatus': 'status',
+        };
 
-        // Migrate jobType to occupation
-        if (data.containsKey('jobType') && !data.containsKey('occupation')) {
-          updates['occupation'] = data['jobType'];
-        }
+        // Check each mapping
+        fieldMappings.forEach((oldField, newField) {
+          if (data.containsKey(oldField) && !data.containsKey(newField)) {
+            updates[newField] = data[oldField];
+          }
+        });
 
-        // Migrate accountStatus to status
-        if (data.containsKey('accountStatus') && !data.containsKey('status')) {
-          updates['status'] = data['accountStatus'];
-        }
-
-        // Add default role if missing
-        if (!data.containsKey('role')) {
-          updates['role'] = 'user';
-        }
-
-        // Add default gender if missing
-        if (!data.containsKey('gender')) {
-          updates['gender'] = 'Laki-laki';
-        }
+        // Add default fields if missing
+        if (!data.containsKey('role')) updates['role'] = 'user';
+        if (!data.containsKey('gender')) updates['gender'] = 'Laki-laki';
 
         // Apply updates if any
         if (updates.isNotEmpty) {
@@ -651,15 +454,18 @@ users''').get();
         }
       }
     } catch (e) {
-      developer.log('Error migrating user fields: $e', name: 'AdminUserService');
+      _logError('migrating user fields', e);
     }
   }
 
-  // Fix inconsistent status values in database
+  /// Fix inconsistent status values in database
   Future<void> fixInconsistentStatuses() async {
     try {
-      final querySnapshot = await _firestore.collection('users').get();
+      final querySnapshot = await _usersCollection.get();
 
+      final batch = _firestore.batch();
+      int updateCount = 0;
+      
       for (final doc in querySnapshot.docs) {
         final data = doc.data();
         final currentStatus = _safeParseString(
@@ -667,16 +473,32 @@ users''').get();
         );
 
         if (!validStatuses.contains(currentStatus)) {
-          developer.log('Fixing user ${doc.id} with invalid status: $currentStatus', name: 'AdminUserService');
-          await doc.reference.update({
+          developer.log(
+            'Fixing user ${doc.id} with invalid status: $currentStatus', 
+            name: 'AdminUserService'
+          );
+          
+          batch.update(doc.reference, {
             'status': 'active',
-            'accountStatus': 'active', // Also update legacy field
+            'accountStatus': 'active',
             'updatedAt': FieldValue.serverTimestamp(),
           });
+          
+          updateCount++;
+          
+          // Firebase has a limit of 500 operations per batch
+          if (updateCount >= 400) {
+            await batch.commit();
+            updateCount = 0;
+          }
         }
       }
+      
+      if (updateCount > 0) {
+        await batch.commit();
+      }
     } catch (e) {
-      developer.log('Error fixing inconsistent statuses: $e', name: 'AdminUserService');
+      _logError('fixing inconsistent statuses', e);
     }
   }
 }

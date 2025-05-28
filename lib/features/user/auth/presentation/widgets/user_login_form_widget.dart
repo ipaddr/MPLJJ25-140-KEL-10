@@ -4,6 +4,9 @@ import 'package:socio_care/core/navigation/route_names.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../services/user_auth_service.dart';
+
+/// Widget form untuk login pengguna
 class LoginFormWidget extends StatefulWidget {
   const LoginFormWidget({super.key});
 
@@ -12,11 +15,13 @@ class LoginFormWidget extends StatefulWidget {
 }
 
 class _LoginFormWidgetState extends State<LoginFormWidget> {
-  bool _isPasswordVisible = false;
-  bool _isLoading = false;
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final UserAuthService _authService = UserAuthService();
+
+  bool _isPasswordVisible = false;
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -25,6 +30,7 @@ class _LoginFormWidgetState extends State<LoginFormWidget> {
     super.dispose();
   }
 
+  /// Proses login pengguna
   Future<void> _login() async {
     if (_formKey.currentState!.validate()) {
       setState(() {
@@ -32,108 +38,21 @@ class _LoginFormWidgetState extends State<LoginFormWidget> {
       });
 
       try {
-        // 1. Authenticate with Firebase
-        UserCredential userCredential = await FirebaseAuth.instance
+        // Authenticate with Firebase
+        final UserCredential userCredential = await FirebaseAuth.instance
             .signInWithEmailAndPassword(
-          email: _emailController.text.trim(),
-          password: _passwordController.text,
-        );
+              email: _emailController.text.trim(),
+              password: _passwordController.text,
+            );
 
-        User? user = userCredential.user;
+        final User? user = userCredential.user;
         if (user != null) {
-          // 2. Check if user exists in 'users' collection (not 'admins')
-          DocumentSnapshot userDoc = await FirebaseFirestore.instance
-              .collection('users')
-              .doc(user.uid)
-              .get();
-
-          if (userDoc.exists) {
-            // User found in users collection
-            Map<String, dynamic> userData = userDoc.data() as Map<String, dynamic>;
-            
-            // 3. Check if user account is active
-            bool isActive = userData['isActive'] ?? true;
-            if (!isActive) {
-              await FirebaseAuth.instance.signOut();
-              throw Exception('Akun Anda tidak aktif. Hubungi administrator.');
-            }
-
-            // 4. Update last login timestamp
-            await FirebaseFirestore.instance
-                .collection('users')
-                .doc(user.uid)
-                .update({
-              'lastLogin': FieldValue.serverTimestamp(),
-            });
-
-            // 5. Navigate to user dashboard
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Login berhasil!'),
-                  backgroundColor: Colors.green,
-                ),
-              );
-              context.go(RouteNames.userDashboard);
-            }
-          } else {
-            // Check if this email belongs to an admin
-            DocumentSnapshot adminDoc = await FirebaseFirestore.instance
-                .collection('admin_profiles')
-                .doc(user.uid)
-                .get();
-
-            if (adminDoc.exists) {
-              await FirebaseAuth.instance.signOut();
-              throw Exception('Gunakan halaman login admin untuk akun ini.');
-            } else {
-              await FirebaseAuth.instance.signOut();
-              throw Exception('Data pengguna tidak ditemukan.');
-            }
-          }
+          await _verifyUserAccount(user);
         }
       } on FirebaseAuthException catch (e) {
-        String errorMessage;
-        switch (e.code) {
-          case 'user-not-found':
-            errorMessage = 'Email tidak terdaftar.';
-            break;
-          case 'wrong-password':
-            errorMessage = 'Password salah.';
-            break;
-          case 'invalid-email':
-            errorMessage = 'Format email tidak valid.';
-            break;
-          case 'user-disabled':
-            errorMessage = 'Akun telah dinonaktifkan.';
-            break;
-          case 'too-many-requests':
-            errorMessage = 'Terlalu banyak percobaan login. Coba lagi nanti.';
-            break;
-          case 'invalid-credential':
-            errorMessage = 'Email atau password salah.';
-            break;
-          default:
-            errorMessage = 'Terjadi kesalahan: ${e.message}';
-        }
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(errorMessage),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
+        _handleAuthError(e);
       } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(e.toString().replaceAll('Exception: ', '')),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
+        _showErrorMessage(e.toString().replaceAll('Exception: ', ''));
       } finally {
         if (mounted) {
           setState(() {
@@ -144,6 +63,134 @@ class _LoginFormWidgetState extends State<LoginFormWidget> {
     }
   }
 
+  /// Verifikasi akun pengguna
+  Future<void> _verifyUserAccount(User user) async {
+    // Check if user exists in 'users' collection
+    final DocumentSnapshot userDoc =
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+
+    if (userDoc.exists) {
+      await _processValidUserLogin(
+        user,
+        userDoc.data() as Map<String, dynamic>,
+      );
+    } else {
+      await _checkIfAdminAccount(user);
+    }
+  }
+
+  /// Proses login untuk pengguna valid
+  Future<void> _processValidUserLogin(
+    User user,
+    Map<String, dynamic> userData,
+  ) async {
+    // Check if user account is active
+    final bool isActive = userData['isActive'] ?? true;
+    if (!isActive) {
+      await FirebaseAuth.instance.signOut();
+      throw Exception('Akun Anda tidak aktif. Hubungi administrator.');
+    }
+
+    // Get token and save login information
+    String? authToken = await user.getIdToken();
+
+    if (authToken == null) {
+      throw Exception('Gagal mendapatkan token autentikasi.');
+    }
+
+    // Save login information to persist across app sessions
+    await _authService.saveLoginInfo(
+      authToken: authToken,
+      userId: user.uid,
+      name: userData['name'] ?? userData['fullName'] ?? '',
+      email: user.email ?? _emailController.text.trim(),
+    );
+
+    // Update last login timestamp
+    await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
+      'lastLogin': FieldValue.serverTimestamp(),
+    });
+
+    // Navigate to user dashboard
+    if (mounted) {
+      _showSuccessMessage();
+      context.go(RouteNames.userDashboard);
+    }
+  }
+
+  /// Periksa jika akun adalah akun admin
+  Future<void> _checkIfAdminAccount(User user) async {
+    final DocumentSnapshot adminDoc =
+        await FirebaseFirestore.instance
+            .collection('admin_profiles')
+            .doc(user.uid)
+            .get();
+
+    await FirebaseAuth.instance.signOut();
+
+    if (adminDoc.exists) {
+      throw Exception('Gunakan halaman login admin untuk akun ini.');
+    } else {
+      throw Exception('Data pengguna tidak ditemukan.');
+    }
+  }
+
+  /// Menampilkan pesan sukses
+  void _showSuccessMessage() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Login berhasil!'),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  /// Menangani error autentikasi
+  void _handleAuthError(FirebaseAuthException e) {
+    String errorMessage;
+    switch (e.code) {
+      case 'user-not-found':
+        errorMessage = 'Email tidak terdaftar.';
+        break;
+      case 'wrong-password':
+        errorMessage = 'Password salah.';
+        break;
+      case 'invalid-email':
+        errorMessage = 'Format email tidak valid.';
+        break;
+      case 'user-disabled':
+        errorMessage = 'Akun telah dinonaktifkan.';
+        break;
+      case 'too-many-requests':
+        errorMessage = 'Terlalu banyak percobaan login. Coba lagi nanti.';
+        break;
+      case 'invalid-credential':
+        errorMessage = 'Email atau password salah.';
+        break;
+      default:
+        errorMessage = 'Terjadi kesalahan: ${e.message}';
+    }
+
+    _showErrorMessage(errorMessage);
+  }
+
+  /// Menampilkan pesan error
+  void _showErrorMessage(String message) {
+    if (!mounted) return;
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Form(
@@ -151,6 +198,7 @@ class _LoginFormWidgetState extends State<LoginFormWidget> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Email Field
           TextFormField(
             controller: _emailController,
             decoration: InputDecoration(
@@ -181,6 +229,8 @@ class _LoginFormWidgetState extends State<LoginFormWidget> {
             },
           ),
           const SizedBox(height: 16.0),
+          
+          // Password Field
           TextFormField(
             controller: _passwordController,
             decoration: InputDecoration(
@@ -189,11 +239,13 @@ class _LoginFormWidgetState extends State<LoginFormWidget> {
                 icon: Icon(
                   _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
                 ),
-                onPressed: _isLoading ? null : () {
-                  setState(() {
-                    _isPasswordVisible = !_isPasswordVisible;
-                  });
-                },
+                onPressed: _isLoading 
+                    ? null 
+                    : () {
+                        setState(() {
+                          _isPasswordVisible = !_isPasswordVisible;
+                        });
+                      },
               ),
               hintText: 'Password',
               filled: true,
@@ -221,6 +273,8 @@ class _LoginFormWidgetState extends State<LoginFormWidget> {
             },
           ),
           const SizedBox(height: 24.0),
+          
+          // Login Button
           ElevatedButton(
             onPressed: _isLoading ? null : _login,
             style: ElevatedButton.styleFrom(

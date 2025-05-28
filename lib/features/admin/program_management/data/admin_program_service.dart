@@ -2,13 +2,21 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:io';
+import 'package:logging/logging.dart';
 
+/// Service untuk manajemen program oleh admin
+/// 
+/// Menyediakan fungsi-fungsi untuk CRUD program, upload gambar,
+/// dan operasi terkait program
 class AdminProgramService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
+  
+  // Logger untuk pencatatan error
+  final _log = Logger('AdminProgramService');
 
-  // Get all programs
+  /// Mengambil semua program yang tersedia
   Future<List<Map<String, dynamic>>> getAllPrograms() async {
     try {
       final querySnapshot = await _firestore
@@ -16,63 +24,29 @@ class AdminProgramService {
           .orderBy('createdAt', descending: true)
           .get();
 
-      return querySnapshot.docs.map((doc) {
-        final data = doc.data();
-        return {
-          'id': doc.id,
-          'programName': data['programName'] ?? '',
-          'organizer': data['organizer'] ?? '',
-          'targetAudience': data['targetAudience'] ?? '',
-          'category': data['category'] ?? '',
-          'description': data['description'] ?? '',
-          'termsAndConditions': data['termsAndConditions'] ?? '',
-          'registrationGuide': data['registrationGuide'] ?? '',
-          'status': data['status'] ?? 'inactive',
-          'imageUrl': data['imageUrl'] ?? '',
-          'createdBy': data['createdBy'] ?? '',
-          'createdAt': data['createdAt'] as Timestamp?,
-          'updatedAt': data['updatedAt'] as Timestamp?,
-          'totalApplications': data['totalApplications'] ?? 0,
-        };
-      }).toList();
+      return _mapProgramDocuments(querySnapshot.docs);
     } catch (e) {
-      print('Error getting programs: $e');
+      _log.severe('Error getting programs', e);
       return [];
     }
   }
 
-  // Get program by ID
+  /// Mengambil program berdasarkan ID
   Future<Map<String, dynamic>?> getProgramById(String programId) async {
     try {
       final doc = await _firestore.collection('programs').doc(programId).get();
       
       if (doc.exists) {
-        final data = doc.data()!;
-        return {
-          'id': doc.id,
-          'programName': data['programName'] ?? '',
-          'organizer': data['organizer'] ?? '',
-          'targetAudience': data['targetAudience'] ?? '',
-          'category': data['category'] ?? '',
-          'description': data['description'] ?? '',
-          'termsAndConditions': data['termsAndConditions'] ?? '',
-          'registrationGuide': data['registrationGuide'] ?? '',
-          'status': data['status'] ?? 'inactive',
-          'imageUrl': data['imageUrl'] ?? '',
-          'createdBy': data['createdBy'] ?? '',
-          'createdAt': data['createdAt'] as Timestamp?,
-          'updatedAt': data['updatedAt'] as Timestamp?,
-          'totalApplications': data['totalApplications'] ?? 0,
-        };
+        return _mapProgramDocument(doc);
       }
       return null;
     } catch (e) {
-      print('Error getting program: $e');
+      _log.severe('Error getting program: $programId', e);
       return null;
     }
   }
 
-  // Get applications by program ID - ADDED MISSING METHOD
+  /// Mengambil daftar pengajuan berdasarkan ID program
   Future<List<Map<String, dynamic>>> getApplicationsByProgramId(String programId) async {
     try {
       final querySnapshot = await _firestore
@@ -81,29 +55,14 @@ class AdminProgramService {
           .orderBy('submittedAt', descending: true)
           .get();
 
-      return querySnapshot.docs.map((doc) {
-        final data = doc.data();
-        return {
-          'id': doc.id,
-          'userId': data['userId'] ?? '',
-          'programId': data['programId'] ?? '',
-          'userName': data['userName'] ?? '',
-          'userEmail': data['userEmail'] ?? '',
-          'status': data['status'] ?? 'pending',
-          'submittedAt': data['submittedAt'] as Timestamp?,
-          'reviewedAt': data['reviewedAt'] as Timestamp?,
-          'reviewedBy': data['reviewedBy'] ?? '',
-          'notes': data['notes'] ?? '',
-          'documents': data['documents'] ?? [],
-        };
-      }).toList();
+      return _mapApplicationDocuments(querySnapshot.docs);
     } catch (e) {
-      print('Error getting applications by program ID: $e');
+      _log.severe('Error getting applications by program ID: $programId', e);
       return [];
     }
   }
 
-  // Create new program
+  /// Membuat program baru
   Future<String?> createProgram({
     required String programName,
     required String organizer,
@@ -144,12 +103,12 @@ class AdminProgramService {
 
       return docRef.id;
     } catch (e) {
-      print('Error creating program: $e');
+      _log.severe('Error creating program', e);
       return null;
     }
   }
 
-  // Update program
+  /// Memperbarui program yang sudah ada
   Future<bool> updateProgram({
     required String programId,
     required String programName,
@@ -167,11 +126,11 @@ class AdminProgramService {
       String? imageUrl = existingImageUrl;
       
       if (imageFile != null) {
-        // Delete old image if exists
+        // Hapus gambar lama jika ada
         if (existingImageUrl != null && existingImageUrl.isNotEmpty) {
           await _deleteImage(existingImageUrl);
         }
-        // Upload new image
+        // Upload gambar baru
         imageUrl = await _uploadImage(imageFile);
       }
 
@@ -190,37 +149,37 @@ class AdminProgramService {
 
       return true;
     } catch (e) {
-      print('Error updating program: $e');
+      _log.severe('Error updating program: $programId', e);
       return false;
     }
   }
 
-  // Delete program
+  /// Menghapus program
   Future<bool> deleteProgram(String programId) async {
     try {
-      // Get program data first to delete image
+      // Ambil data program terlebih dahulu untuk menghapus gambar
       final programData = await getProgramById(programId);
       
       if (programData != null) {
-        // Delete image if exists
+        // Hapus gambar jika ada
         final imageUrl = programData['imageUrl'] as String?;
         if (imageUrl != null && imageUrl.isNotEmpty) {
           await _deleteImage(imageUrl);
         }
         
-        // Delete program document
+        // Hapus dokumen program
         await _firestore.collection('programs').doc(programId).delete();
         
         return true;
       }
       return false;
     } catch (e) {
-      print('Error deleting program: $e');
+      _log.severe('Error deleting program: $programId', e);
       return false;
     }
   }
 
-  // Upload image to Firebase Storage
+  /// Upload gambar ke Firebase Storage
   Future<String?> _uploadImage(File imageFile) async {
     try {
       final fileName = 'program_${DateTime.now().millisecondsSinceEpoch}.jpg';
@@ -229,22 +188,22 @@ class AdminProgramService {
       await ref.putFile(imageFile);
       return await ref.getDownloadURL();
     } catch (e) {
-      print('Error uploading image: $e');
+      _log.severe('Error uploading image', e);
       return null;
     }
   }
 
-  // Delete image from Firebase Storage
+  /// Hapus gambar dari Firebase Storage
   Future<void> _deleteImage(String imageUrl) async {
     try {
       final ref = _storage.refFromURL(imageUrl);
       await ref.delete();
     } catch (e) {
-      print('Error deleting image: $e');
+      _log.warning('Error deleting image: $imageUrl', e);
     }
   }
 
-  // Get programs by category
+  /// Mengambil program berdasarkan kategori
   Future<List<Map<String, dynamic>>> getProgramsByCategory(String category) async {
     try {
       final querySnapshot = await _firestore
@@ -254,32 +213,14 @@ class AdminProgramService {
           .orderBy('createdAt', descending: true)
           .get();
 
-      return querySnapshot.docs.map((doc) {
-        final data = doc.data();
-        return {
-          'id': doc.id,
-          'programName': data['programName'] ?? '',
-          'organizer': data['organizer'] ?? '',
-          'targetAudience': data['targetAudience'] ?? '',
-          'category': data['category'] ?? '',
-          'description': data['description'] ?? '',
-          'termsAndConditions': data['termsAndConditions'] ?? '',
-          'registrationGuide': data['registrationGuide'] ?? '',
-          'status': data['status'] ?? 'inactive',
-          'imageUrl': data['imageUrl'] ?? '',
-          'createdBy': data['createdBy'] ?? '',
-          'createdAt': data['createdAt'] as Timestamp?,
-          'updatedAt': data['updatedAt'] as Timestamp?,
-          'totalApplications': data['totalApplications'] ?? 0,
-        };
-      }).toList();
+      return _mapProgramDocuments(querySnapshot.docs);
     } catch (e) {
-      print('Error getting programs by category: $e');
+      _log.severe('Error getting programs by category: $category', e);
       return [];
     }
   }
 
-  // Get programs by status
+  /// Mengambil program berdasarkan status
   Future<List<Map<String, dynamic>>> getProgramsByStatus(String status) async {
     try {
       final querySnapshot = await _firestore
@@ -288,32 +229,14 @@ class AdminProgramService {
           .orderBy('createdAt', descending: true)
           .get();
 
-      return querySnapshot.docs.map((doc) {
-        final data = doc.data();
-        return {
-          'id': doc.id,
-          'programName': data['programName'] ?? '',
-          'organizer': data['organizer'] ?? '',
-          'targetAudience': data['targetAudience'] ?? '',
-          'category': data['category'] ?? '',
-          'description': data['description'] ?? '',
-          'termsAndConditions': data['termsAndConditions'] ?? '',
-          'registrationGuide': data['registrationGuide'] ?? '',
-          'status': data['status'] ?? 'inactive',
-          'imageUrl': data['imageUrl'] ?? '',
-          'createdBy': data['createdBy'] ?? '',
-          'createdAt': data['createdAt'] as Timestamp?,
-          'updatedAt': data['updatedAt'] as Timestamp?,
-          'totalApplications': data['totalApplications'] ?? 0,
-        };
-      }).toList();
+      return _mapProgramDocuments(querySnapshot.docs);
     } catch (e) {
-      print('Error getting programs by status: $e');
+      _log.severe('Error getting programs by status: $status', e);
       return [];
     }
   }
 
-  // Update total applications count
+  /// Memperbarui jumlah total pengajuan untuk program tertentu
   Future<void> updateTotalApplications(String programId) async {
     try {
       final applicationsCount = await _firestore
@@ -327,7 +250,56 @@ class AdminProgramService {
         'updatedAt': FieldValue.serverTimestamp(),
       });
     } catch (e) {
-      print('Error updating total applications: $e');
+      _log.severe('Error updating total applications: $programId', e);
     }
+  }
+
+  /// Helper method untuk memetakan dokumen program menjadi Map
+  Map<String, dynamic> _mapProgramDocument(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>? ?? {};
+    return {
+      'id': doc.id,
+      'programName': data['programName'] ?? '',
+      'organizer': data['organizer'] ?? '',
+      'targetAudience': data['targetAudience'] ?? '',
+      'category': data['category'] ?? '',
+      'description': data['description'] ?? '',
+      'termsAndConditions': data['termsAndConditions'] ?? '',
+      'registrationGuide': data['registrationGuide'] ?? '',
+      'status': data['status'] ?? 'inactive',
+      'imageUrl': data['imageUrl'] ?? '',
+      'createdBy': data['createdBy'] ?? '',
+      'createdAt': data['createdAt'],
+      'updatedAt': data['updatedAt'],
+      'totalApplications': data['totalApplications'] ?? 0,
+    };
+  }
+
+  /// Helper method untuk memetakan dokumen program menjadi List<Map>
+  List<Map<String, dynamic>> _mapProgramDocuments(List<DocumentSnapshot> docs) {
+    return docs.map(_mapProgramDocument).toList();
+  }
+
+  /// Helper method untuk memetakan dokumen aplikasi menjadi Map
+  Map<String, dynamic> _mapApplicationDocument(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>? ?? {};
+    return {
+      'id': doc.id,
+      'userId': data['userId'] ?? '',
+      'programId': data['programId'] ?? '',
+      'userName': data['userName'] ?? '',
+      'userEmail': data['userEmail'] ?? '',
+      'status': data['status'] ?? 'pending',
+      'submittedAt': data['submittedAt'],
+      'reviewedAt': data['reviewedAt'],
+      'reviewedBy': data['reviewedBy'] ?? '',
+      'notes': data['notes'] ?? '',
+      'documents': data['documents'] ?? [],
+    };
+  }
+
+  /// Helper method untuk memetakan dokumen aplikasi menjadi List<Map>
+  List<Map<String, dynamic>> _mapApplicationDocuments(List<DocumentSnapshot> docs) {
+    return docs.map(_mapApplicationDocument).toList();
   }
 }

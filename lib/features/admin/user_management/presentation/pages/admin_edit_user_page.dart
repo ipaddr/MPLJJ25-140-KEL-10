@@ -5,6 +5,9 @@ import 'package:socio_care/features/admin/core_admin/presentation/widgets/admin_
 import '../../data/admin_user_service.dart';
 import 'package:intl/intl.dart';
 
+/// Page for editing user information by admin
+///
+/// Allows admins to update user personal information, role, and status
 class AdminEditUserPage extends StatefulWidget {
   final String userId;
 
@@ -16,9 +19,35 @@ class AdminEditUserPage extends StatefulWidget {
 
 class _AdminEditUserPageState extends State<AdminEditUserPage>
     with TickerProviderStateMixin {
+  // UI Constants
+  static const double _spacing = 24.0;
+  static const double _midSpacing = 20.0;
+  static const double _smallSpacing = 16.0;
+  static const double _microSpacing = 12.0;
+  static const double _miniSpacing = 8.0;
+  static const double _tinySpacing = 6.0;
+  static const double _microTinySpacing = 4.0;
+  static const double _borderRadius = 16.0;
+  static const double _smallBorderRadius = 12.0;
+  static const double _microBorderRadius = 10.0;
+  static const double _miniBorderRadius = 8.0;
+
+  static const double _titleFontSize = 22.0;
+  static const double _subtitleFontSize = 18.0;
+  static const double _bodyFontSize = 16.0;
+  static const double _smallFontSize = 14.0;
+  static const double _captionFontSize = 12.0;
+
+  static const double _iconSize = 24.0;
+  static const double _smallIconSize = 20.0;
+  static const double _microIconSize = 16.0;
+
+  // Keys
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  final AdminUserService _userService = AdminUserService();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+
+  // Services
+  final AdminUserService _userService = AdminUserService();
 
   // Text Controllers
   final TextEditingController _nameController = TextEditingController();
@@ -47,6 +76,12 @@ class _AdminEditUserPageState extends State<AdminEditUserPage>
   @override
   void initState() {
     super.initState();
+    _initializeAnimations();
+    _loadUserData();
+  }
+
+  /// Initialize animation controllers and animations
+  void _initializeAnimations() {
     _fadeController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
@@ -62,8 +97,6 @@ class _AdminEditUserPageState extends State<AdminEditUserPage>
       begin: const Offset(0, 0.2),
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _slideController, curve: Curves.easeOut));
-
-    _loadUserData();
   }
 
   @override
@@ -77,6 +110,7 @@ class _AdminEditUserPageState extends State<AdminEditUserPage>
     super.dispose();
   }
 
+  /// Load user data from the service
   Future<void> _loadUserData() async {
     setState(() {
       _isLoading = true;
@@ -116,6 +150,7 @@ class _AdminEditUserPageState extends State<AdminEditUserPage>
     }
   }
 
+  /// Update user data with form values
   Future<void> _updateUser() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -155,40 +190,47 @@ class _AdminEditUserPageState extends State<AdminEditUserPage>
     }
   }
 
+  /// Show a success message in a snackbar
   void _showSuccessSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
           children: [
             const Icon(Icons.check_circle, color: Colors.white),
-            const SizedBox(width: 8),
+            const SizedBox(width: _miniSpacing),
             Expanded(child: Text(message)),
           ],
         ),
         backgroundColor: Colors.green.shade600,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(_miniBorderRadius),
+        ),
       ),
     );
   }
 
+  /// Show an error message in a snackbar
   void _showErrorSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
           children: [
             const Icon(Icons.error_outline, color: Colors.white),
-            const SizedBox(width: 8),
+            const SizedBox(width: _miniSpacing),
             Expanded(child: Text(message)),
           ],
         ),
         backgroundColor: Colors.red.shade600,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(_miniBorderRadius),
+        ),
       ),
     );
   }
 
+  /// Get display name for role
   String _getRoleDisplayName(String role) {
     switch (role) {
       case 'admin':
@@ -200,6 +242,7 @@ class _AdminEditUserPageState extends State<AdminEditUserPage>
     }
   }
 
+  /// Get display name for status
   String _getStatusDisplayName(String status) {
     switch (status) {
       case 'active':
@@ -213,6 +256,7 @@ class _AdminEditUserPageState extends State<AdminEditUserPage>
     }
   }
 
+  /// Get color for status
   Color _getStatusColor(String status) {
     switch (status) {
       case 'active':
@@ -226,52 +270,7 @@ class _AdminEditUserPageState extends State<AdminEditUserPage>
     }
   }
 
-  Widget _buildFormSection(String title, IconData icon, List<Widget> children) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 24.0),
-      padding: const EdgeInsets.all(20.0),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16.0),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade100,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(icon, color: Colors.blue.shade700, size: 20),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.blue.shade800,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          ...children,
-        ],
-      ),
-    );
-  }
-
+  /// Format date for display
   String _formatDate(DateTime? date) {
     if (date == null) return 'N/A';
     return DateFormat('dd MMM yyyy, HH:mm').format(date);
@@ -297,10 +296,7 @@ class _AdminEditUserPageState extends State<AdminEditUserPage>
         child: SafeArea(
           child: Column(
             children: [
-              // Custom App Bar - SAMA SEPERTI AdminProgramListPage
               _buildCustomAppBar(),
-
-              // Main Content
               Expanded(
                 child:
                     _isLoading
@@ -317,29 +313,18 @@ class _AdminEditUserPageState extends State<AdminEditUserPage>
     );
   }
 
+  /// Build the custom app bar
   Widget _buildCustomAppBar() {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(_midSpacing),
       child: Row(
         children: [
           // Menu Button
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: IconButton(
-              icon: const Icon(
-                Icons.menu_rounded,
-                color: Colors.white,
-                size: 24,
-              ),
-              onPressed: () {
-                _scaffoldKey.currentState?.openDrawer();
-              },
-            ),
+          _buildAppBarButton(
+            icon: Icons.menu_rounded,
+            onPressed: () => _scaffoldKey.currentState?.openDrawer(),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: _smallSpacing),
 
           // Title Section
           Expanded(
@@ -350,15 +335,15 @@ class _AdminEditUserPageState extends State<AdminEditUserPage>
                   'Edit User',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 22,
+                    fontSize: _titleFontSize,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 Text(
                   'Kelola data pengguna sistem',
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.8),
-                    fontSize: 14,
+                    color: Colors.white.withOpacity(0.8),
+                    fontSize: _smallFontSize,
                   ),
                 ),
               ],
@@ -366,47 +351,63 @@ class _AdminEditUserPageState extends State<AdminEditUserPage>
           ),
 
           // Refresh Button
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: IconButton(
-              icon: AnimatedRotation(
-                turns: _isLoading ? 1 : 0,
-                duration: const Duration(milliseconds: 1000),
-                child: const Icon(
-                  Icons.refresh_rounded,
-                  color: Colors.white,
-                  size: 24,
-                ),
-              ),
-              onPressed: _isLoading ? null : _loadUserData,
-            ),
+          _buildAppBarButton(
+            icon: Icons.refresh_rounded,
+            isLoading: _isLoading,
+            onPressed: _isLoading ? null : _loadUserData,
           ),
         ],
       ),
     );
   }
 
+  /// Build a button for the app bar
+  Widget _buildAppBarButton({
+    required IconData icon,
+    required VoidCallback? onPressed,
+    bool isLoading = false,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(_smallBorderRadius),
+      ),
+      child: IconButton(
+        icon:
+            isLoading
+                ? const SizedBox(
+                  width: _iconSize - 4,
+                  height: _iconSize - 4,
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2,
+                  ),
+                )
+                : Icon(icon, color: Colors.white, size: _iconSize),
+        onPressed: onPressed,
+      ),
+    );
+  }
+
+  /// Build the loading widget
   Widget _buildLoadingWidget() {
     return Center(
       child: Container(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.all(_spacing),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(16),
+          color: Colors.white.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(_borderRadius),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const CircularProgressIndicator(color: Colors.white),
-            const SizedBox(height: 16),
+            const SizedBox(height: _smallSpacing),
             Text(
               'Memuat data user...',
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.9),
-                fontSize: 16,
+                color: Colors.white.withOpacity(0.9),
+                fontSize: _bodyFontSize,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -416,23 +417,24 @@ class _AdminEditUserPageState extends State<AdminEditUserPage>
     );
   }
 
+  /// Build the error widget
   Widget _buildErrorWidget() {
     return Center(
       child: Container(
-        margin: const EdgeInsets.all(24),
-        padding: const EdgeInsets.all(32),
+        margin: const EdgeInsets.all(_spacing),
+        padding: const EdgeInsets.all(_spacing),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+          color: Colors.white.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(_midSpacing),
+          border: Border.all(color: Colors.white.withOpacity(0.3)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(_smallSpacing),
               decoration: BoxDecoration(
-                color: Colors.red.withValues(alpha: 0.2),
+                color: Colors.red.withOpacity(0.2),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
@@ -441,25 +443,25 @@ class _AdminEditUserPageState extends State<AdminEditUserPage>
                 color: Colors.white,
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: _smallSpacing),
             const Text(
               'Terjadi Kesalahan',
               style: TextStyle(
                 color: Colors.white,
-                fontSize: 20,
+                fontSize: _subtitleFontSize,
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: _miniSpacing),
             Text(
               _errorMessage!,
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.8),
-                fontSize: 14,
+                color: Colors.white.withOpacity(0.8),
+                fontSize: _smallFontSize,
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: _spacing),
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -471,11 +473,11 @@ class _AdminEditUserPageState extends State<AdminEditUserPage>
                     backgroundColor: Colors.white,
                     foregroundColor: Colors.blue.shade700,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(_smallBorderRadius),
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: _microSpacing),
                 OutlinedButton.icon(
                   onPressed: () => context.go(RouteNames.adminUserList),
                   icon: const Icon(Icons.arrow_back_rounded),
@@ -484,7 +486,7 @@ class _AdminEditUserPageState extends State<AdminEditUserPage>
                     foregroundColor: Colors.white,
                     side: const BorderSide(color: Colors.white),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(_smallBorderRadius),
                     ),
                   ),
                 ),
@@ -496,6 +498,7 @@ class _AdminEditUserPageState extends State<AdminEditUserPage>
     );
   }
 
+  /// Build the main form content
   Widget _buildEditUserContent() {
     return FadeTransition(
       opacity: _fadeAnimation,
@@ -505,50 +508,27 @@ class _AdminEditUserPageState extends State<AdminEditUserPage>
           decoration: const BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(24),
-              topRight: Radius.circular(24),
+              topLeft: Radius.circular(_spacing),
+              topRight: Radius.circular(_spacing),
             ),
           ),
           child: Form(
             key: _formKey,
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.all(_smallSpacing),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   // User Info Header
-                  if (_userData != null) ...[_buildUserInfoHeader()],
+                  if (_userData != null) _buildUserInfoHeader(),
 
                   // Personal Information Section
                   _buildFormSection('Informasi Pribadi', Icons.person_rounded, [
-                    TextFormField(
+                    _buildTextField(
                       controller: _nameController,
-                      decoration: InputDecoration(
-                        labelText: 'Nama Lengkap',
-                        hintText: 'Masukkan nama lengkap user',
-                        filled: true,
-                        fillColor: Colors.grey.shade50,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10.0),
-                          borderSide: BorderSide.none,
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10.0),
-                          borderSide: BorderSide(color: Colors.grey.shade300),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10.0),
-                          borderSide: BorderSide(
-                            color: Colors.blue.shade400,
-                            width: 2,
-                          ),
-                        ),
-                        prefixIcon: Icon(
-                          Icons.person_outline_rounded,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                      enabled: !_isSaving,
+                      label: 'Nama Lengkap',
+                      hint: 'Masukkan nama lengkap user',
+                      icon: Icons.person_outline_rounded,
                       validator: (value) {
                         if (value == null || value.trim().isEmpty) {
                           return 'Nama lengkap tidak boleh kosong';
@@ -559,37 +539,13 @@ class _AdminEditUserPageState extends State<AdminEditUserPage>
                         return null;
                       },
                     ),
-                    const SizedBox(height: 16.0),
-
-                    TextFormField(
+                    const SizedBox(height: _smallSpacing),
+                    _buildTextField(
                       controller: _emailController,
-                      decoration: InputDecoration(
-                        labelText: 'Email',
-                        hintText: 'Masukkan alamat email',
-                        filled: true,
-                        fillColor: Colors.grey.shade50,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10.0),
-                          borderSide: BorderSide.none,
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10.0),
-                          borderSide: BorderSide(color: Colors.grey.shade300),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10.0),
-                          borderSide: BorderSide(
-                            color: Colors.blue.shade400,
-                            width: 2,
-                          ),
-                        ),
-                        prefixIcon: Icon(
-                          Icons.email_outlined,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
+                      label: 'Email',
+                      hint: 'Masukkan alamat email',
+                      icon: Icons.email_outlined,
                       keyboardType: TextInputType.emailAddress,
-                      enabled: !_isSaving,
                       validator: (value) {
                         if (value == null || value.trim().isEmpty) {
                           return 'Email tidak boleh kosong';
@@ -602,37 +558,13 @@ class _AdminEditUserPageState extends State<AdminEditUserPage>
                         return null;
                       },
                     ),
-                    const SizedBox(height: 16.0),
-
-                    TextFormField(
+                    const SizedBox(height: _smallSpacing),
+                    _buildTextField(
                       controller: _phoneController,
-                      decoration: InputDecoration(
-                        labelText: 'Nomor Telepon',
-                        hintText: 'Contoh: +62812345678',
-                        filled: true,
-                        fillColor: Colors.grey.shade50,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10.0),
-                          borderSide: BorderSide.none,
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10.0),
-                          borderSide: BorderSide(color: Colors.grey.shade300),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10.0),
-                          borderSide: BorderSide(
-                            color: Colors.blue.shade400,
-                            width: 2,
-                          ),
-                        ),
-                        prefixIcon: Icon(
-                          Icons.phone_rounded,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
+                      label: 'Nomor Telepon',
+                      hint: 'Contoh: +62812345678',
+                      icon: Icons.phone_rounded,
                       keyboardType: TextInputType.phone,
-                      enabled: !_isSaving,
                       validator: (value) {
                         if (value == null || value.trim().isEmpty) {
                           return 'Nomor telepon tidak boleh kosong';
@@ -643,37 +575,13 @@ class _AdminEditUserPageState extends State<AdminEditUserPage>
                         return null;
                       },
                     ),
-                    const SizedBox(height: 16.0),
-
-                    TextFormField(
+                    const SizedBox(height: _smallSpacing),
+                    _buildTextField(
                       controller: _addressController,
-                      decoration: InputDecoration(
-                        labelText: 'Alamat',
-                        hintText: 'Masukkan alamat lengkap',
-                        filled: true,
-                        fillColor: Colors.grey.shade50,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10.0),
-                          borderSide: BorderSide.none,
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10.0),
-                          borderSide: BorderSide(color: Colors.grey.shade300),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10.0),
-                          borderSide: BorderSide(
-                            color: Colors.blue.shade400,
-                            width: 2,
-                          ),
-                        ),
-                        prefixIcon: Icon(
-                          Icons.location_on_outlined,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
+                      label: 'Alamat',
+                      hint: 'Masukkan alamat lengkap',
+                      icon: Icons.location_on_outlined,
                       maxLines: 3,
-                      enabled: !_isSaving,
                       validator: (value) {
                         if (value == null || value.trim().isEmpty) {
                           return 'Alamat tidak boleh kosong';
@@ -692,49 +600,26 @@ class _AdminEditUserPageState extends State<AdminEditUserPage>
                         children: [
                           // Role Dropdown
                           Expanded(
-                            child: DropdownButtonFormField<String>(
-                              decoration: InputDecoration(
-                                labelText: 'Role',
-                                filled: true,
-                                fillColor: Colors.grey.shade50,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10.0),
-                                  borderSide: BorderSide.none,
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10.0),
-                                  borderSide: BorderSide(
-                                    color: Colors.grey.shade300,
-                                  ),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10.0),
-                                  borderSide: BorderSide(
-                                    color: Colors.blue.shade400,
-                                    width: 2,
-                                  ),
-                                ),
-                                prefixIcon: Icon(
-                                  Icons.security_rounded,
-                                  color: Colors.grey.shade600,
-                                ),
-                              ),
+                            child: _buildDropdownField(
+                              label: 'Role',
+                              icon: Icons.security_rounded,
                               value: _selectedRole,
                               items:
-                                  _roles.map((String role) {
-                                    return DropdownMenuItem<String>(
-                                      value: role,
-                                      child: Text(_getRoleDisplayName(role)),
-                                    );
-                                  }).toList(),
-                              onChanged:
-                                  _isSaving
-                                      ? null
-                                      : (newValue) {
-                                        setState(() {
-                                          _selectedRole = newValue;
-                                        });
-                                      },
+                                  _roles
+                                      .map(
+                                        (role) => DropdownMenuItem<String>(
+                                          value: role,
+                                          child: Text(
+                                            _getRoleDisplayName(role),
+                                          ),
+                                        ),
+                                      )
+                                      .toList(),
+                              onChanged: (value) {
+                                setState(() {
+                                  _selectedRole = value;
+                                });
+                              },
                               validator: (value) {
                                 if (value == null || value.isEmpty) {
                                   return 'Pilih role user';
@@ -743,65 +628,46 @@ class _AdminEditUserPageState extends State<AdminEditUserPage>
                               },
                             ),
                           ),
-                          const SizedBox(width: 16),
+                          const SizedBox(width: _smallSpacing),
                           // Status Dropdown
                           Expanded(
-                            child: DropdownButtonFormField<String>(
-                              decoration: InputDecoration(
-                                labelText: 'Status',
-                                filled: true,
-                                fillColor: Colors.grey.shade50,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10.0),
-                                  borderSide: BorderSide.none,
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10.0),
-                                  borderSide: BorderSide(
-                                    color: Colors.grey.shade300,
-                                  ),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10.0),
-                                  borderSide: BorderSide(
-                                    color: Colors.blue.shade400,
-                                    width: 2,
-                                  ),
-                                ),
-                                prefixIcon: Icon(
-                                  Icons.toggle_on_rounded,
-                                  color: Colors.grey.shade600,
-                                ),
-                              ),
+                            child: _buildDropdownField(
+                              label: 'Status',
+                              icon: Icons.toggle_on_rounded,
                               value: _selectedStatus,
                               items:
-                                  _statuses.map((String status) {
-                                    return DropdownMenuItem<String>(
-                                      value: status,
-                                      child: Row(
-                                        children: [
-                                          Container(
-                                            width: 12,
-                                            height: 12,
-                                            decoration: BoxDecoration(
-                                              shape: BoxShape.circle,
-                                              color: _getStatusColor(status),
-                                            ),
+                                  _statuses
+                                      .map(
+                                        (status) => DropdownMenuItem<String>(
+                                          value: status,
+                                          child: Row(
+                                            children: [
+                                              Container(
+                                                width: 12,
+                                                height: 12,
+                                                decoration: BoxDecoration(
+                                                  shape: BoxShape.circle,
+                                                  color: _getStatusColor(
+                                                    status,
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(
+                                                width: _miniSpacing,
+                                              ),
+                                              Text(
+                                                _getStatusDisplayName(status),
+                                              ),
+                                            ],
                                           ),
-                                          const SizedBox(width: 8),
-                                          Text(_getStatusDisplayName(status)),
-                                        ],
-                                      ),
-                                    );
-                                  }).toList(),
-                              onChanged:
-                                  _isSaving
-                                      ? null
-                                      : (newValue) {
-                                        setState(() {
-                                          _selectedStatus = newValue;
-                                        });
-                                      },
+                                        ),
+                                      )
+                                      .toList(),
+                              onChanged: (value) {
+                                setState(() {
+                                  _selectedStatus = value;
+                                });
+                              },
                               validator: (value) {
                                 if (value == null || value.isEmpty) {
                                   return 'Pilih status user';
@@ -816,72 +682,14 @@ class _AdminEditUserPageState extends State<AdminEditUserPage>
                   ),
 
                   // Action Buttons
-                  Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12.0),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.blue.withValues(alpha: 0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: ElevatedButton.icon(
-                      onPressed: _isSaving ? null : _updateUser,
-                      icon:
-                          _isSaving
-                              ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2,
-                                ),
-                              )
-                              : const Icon(Icons.save_rounded),
-                      label: Text(
-                        _isSaving ? 'Menyimpan...' : 'Simpan Perubahan',
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0066CC),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 16.0,
-                          horizontal: 20.0,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12.0),
-                        ),
-                        textStyle: const TextStyle(
-                          fontSize: 16.0,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        elevation: 0,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16.0),
+                  _buildSaveButton(),
+
+                  const SizedBox(height: _smallSpacing),
 
                   // Cancel Button
-                  OutlinedButton.icon(
-                    onPressed: _isSaving ? null : () => _showExitConfirmation(),
-                    icon: const Icon(Icons.close_rounded),
-                    label: const Text('Batal'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.grey.shade700,
-                      side: BorderSide(color: Colors.grey.shade400),
-                      padding: const EdgeInsets.symmetric(vertical: 16.0),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12.0),
-                      ),
-                      textStyle: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24.0),
+                  _buildCancelButton(),
+
+                  const SizedBox(height: _spacing),
                 ],
               ),
             ),
@@ -891,20 +699,21 @@ class _AdminEditUserPageState extends State<AdminEditUserPage>
     );
   }
 
+  /// Build the user info header card
   Widget _buildUserInfoHeader() {
     return Container(
-      margin: const EdgeInsets.only(bottom: 24),
-      padding: const EdgeInsets.all(20),
+      margin: const EdgeInsets.only(bottom: _spacing),
+      padding: const EdgeInsets.all(_midSpacing),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [Colors.blue.shade600, Colors.blue.shade800],
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(_borderRadius),
         boxShadow: [
           BoxShadow(
-            color: Colors.blue.withValues(alpha: 0.3),
+            color: Colors.blue.withOpacity(0.3),
             blurRadius: 15,
             offset: const Offset(0, 8),
           ),
@@ -916,18 +725,18 @@ class _AdminEditUserPageState extends State<AdminEditUserPage>
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(_microSpacing),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(12),
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(_smallBorderRadius),
                 ),
-                child: Icon(
+                child: const Icon(
                   Icons.person_rounded,
                   color: Colors.white,
-                  size: 24,
+                  size: _iconSize,
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: _smallSpacing),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -935,7 +744,7 @@ class _AdminEditUserPageState extends State<AdminEditUserPage>
                     const Text(
                       'Informasi User',
                       style: TextStyle(
-                        fontSize: 18,
+                        fontSize: _subtitleFontSize,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
                       ),
@@ -943,8 +752,8 @@ class _AdminEditUserPageState extends State<AdminEditUserPage>
                     Text(
                       'Data lengkap user yang akan diedit',
                       style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.white.withValues(alpha: 0.8),
+                        fontSize: _smallFontSize,
+                        color: Colors.white.withOpacity(0.8),
                       ),
                     ),
                   ],
@@ -952,12 +761,12 @@ class _AdminEditUserPageState extends State<AdminEditUserPage>
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: _smallSpacing),
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(_smallSpacing),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
+              color: Colors.white.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(_smallBorderRadius),
             ),
             child: Column(
               children: [
@@ -991,6 +800,80 @@ class _AdminEditUserPageState extends State<AdminEditUserPage>
     );
   }
 
+  /// Build a text field with consistent styling
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    required IconData icon,
+    TextInputType keyboardType = TextInputType.text,
+    int maxLines = 1,
+    required String? Function(String?) validator,
+  }) {
+    return TextFormField(
+      controller: controller,
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        filled: true,
+        fillColor: Colors.grey.shade50,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(_microBorderRadius),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(_microBorderRadius),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(_microBorderRadius),
+          borderSide: BorderSide(color: Colors.blue.shade400, width: 2),
+        ),
+        prefixIcon: Icon(icon, color: Colors.grey.shade600),
+      ),
+      keyboardType: keyboardType,
+      maxLines: maxLines,
+      enabled: !_isSaving,
+      validator: validator,
+    );
+  }
+
+  /// Build a dropdown field with consistent styling
+  Widget _buildDropdownField<T>({
+    required String label,
+    required IconData icon,
+    required T? value,
+    required List<DropdownMenuItem<T>> items,
+    required void Function(T?) onChanged,
+    required String? Function(T?) validator,
+  }) {
+    return DropdownButtonFormField<T>(
+      decoration: InputDecoration(
+        labelText: label,
+        filled: true,
+        fillColor: Colors.grey.shade50,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(_microBorderRadius),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(_microBorderRadius),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(_microBorderRadius),
+          borderSide: BorderSide(color: Colors.blue.shade400, width: 2),
+        ),
+        prefixIcon: Icon(icon, color: Colors.grey.shade600),
+      ),
+      value: value,
+      items: items,
+      onChanged: _isSaving ? null : onChanged,
+      validator: validator,
+    );
+  }
+
+  /// Build an info row for the user header
   Widget _buildInfoRow(
     String label,
     String value,
@@ -999,22 +882,26 @@ class _AdminEditUserPageState extends State<AdminEditUserPage>
     bool isLast = false,
   }) {
     return Container(
-      padding: EdgeInsets.only(bottom: isLast ? 0 : 12),
+      padding: EdgeInsets.only(bottom: isLast ? 0 : _microSpacing),
       decoration: BoxDecoration(
         border:
             isLast
                 ? null
                 : Border(
                   bottom: BorderSide(
-                    color: Colors.white.withValues(alpha: 0.2),
+                    color: Colors.white.withOpacity(0.2),
                     width: 1,
                   ),
                 ),
       ),
       child: Row(
         children: [
-          Icon(icon, color: Colors.white.withValues(alpha: 0.8), size: 16),
-          const SizedBox(width: 12),
+          Icon(
+            icon,
+            color: Colors.white.withOpacity(0.8),
+            size: _microIconSize,
+          ),
+          const SizedBox(width: _microSpacing),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1022,28 +909,26 @@ class _AdminEditUserPageState extends State<AdminEditUserPage>
                 Text(
                   label,
                   style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.white.withValues(alpha: 0.7),
+                    fontSize: _captionFontSize,
+                    color: Colors.white.withOpacity(0.7),
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: _microTinySpacing - 2),
                 statusColor != null
                     ? Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
+                        horizontal: _miniSpacing,
+                        vertical: _microTinySpacing - 2,
                       ),
                       decoration: BoxDecoration(
-                        color: statusColor.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: statusColor.withValues(alpha: 0.4),
-                        ),
+                        color: statusColor.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(_miniSpacing),
+                        border: Border.all(color: statusColor.withOpacity(0.4)),
                       ),
                       child: Text(
                         value,
                         style: const TextStyle(
-                          fontSize: 12,
+                          fontSize: _captionFontSize,
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
                         ),
@@ -1052,7 +937,7 @@ class _AdminEditUserPageState extends State<AdminEditUserPage>
                     : Text(
                       value,
                       style: const TextStyle(
-                        fontSize: 14,
+                        fontSize: _smallFontSize,
                         color: Colors.white,
                         fontWeight: FontWeight.w500,
                       ),
@@ -1065,29 +950,149 @@ class _AdminEditUserPageState extends State<AdminEditUserPage>
     );
   }
 
+  /// Build a form section with a title and icon
+  Widget _buildFormSection(String title, IconData icon, List<Widget> children) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: _spacing),
+      padding: const EdgeInsets.all(_midSpacing),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(_borderRadius),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(_miniSpacing),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade100,
+                  borderRadius: BorderRadius.circular(_miniSpacing),
+                ),
+                child: Icon(
+                  icon,
+                  color: Colors.blue.shade700,
+                  size: _smallIconSize,
+                ),
+              ),
+              const SizedBox(width: _microSpacing),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: _bodyFontSize,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue.shade800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: _smallSpacing),
+          ...children,
+        ],
+      ),
+    );
+  }
+
+  /// Build the save button
+  Widget _buildSaveButton() {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(_smallBorderRadius),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blue.withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ElevatedButton.icon(
+        onPressed: _isSaving ? null : _updateUser,
+        icon:
+            _isSaving
+                ? const SizedBox(
+                  width: _smallIconSize,
+                  height: _smallIconSize,
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2,
+                  ),
+                )
+                : const Icon(Icons.save_rounded),
+        label: Text(_isSaving ? 'Menyimpan...' : 'Simpan Perubahan'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF0066CC),
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(
+            vertical: _smallSpacing,
+            horizontal: _midSpacing,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(_smallBorderRadius),
+          ),
+          textStyle: const TextStyle(
+            fontSize: _bodyFontSize,
+            fontWeight: FontWeight.w600,
+          ),
+          elevation: 0,
+        ),
+      ),
+    );
+  }
+
+  /// Build the cancel button
+  Widget _buildCancelButton() {
+    return OutlinedButton.icon(
+      onPressed: _isSaving ? null : _showExitConfirmation,
+      icon: const Icon(Icons.close_rounded),
+      label: const Text('Batal'),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: Colors.grey.shade700,
+        side: BorderSide(color: Colors.grey.shade400),
+        padding: const EdgeInsets.symmetric(vertical: _smallSpacing),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(_smallBorderRadius),
+        ),
+        textStyle: const TextStyle(
+          fontSize: _bodyFontSize,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  /// Show exit confirmation dialog
   void _showExitConfirmation() {
     showDialog(
       context: context,
       builder:
           (context) => AlertDialog(
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(_borderRadius),
             ),
             title: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(_miniSpacing),
                   decoration: BoxDecoration(
                     color: Colors.orange.shade100,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(_miniSpacing),
                   ),
                   child: Icon(
                     Icons.warning_rounded,
                     color: Colors.orange.shade600,
-                    size: 24,
+                    size: _iconSize,
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: _microSpacing),
                 const Text('Konfirmasi Keluar'),
               ],
             ),
@@ -1111,7 +1116,7 @@ class _AdminEditUserPageState extends State<AdminEditUserPage>
                   backgroundColor: Colors.orange.shade600,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(_miniSpacing),
                   ),
                 ),
                 child: const Text('Keluar'),

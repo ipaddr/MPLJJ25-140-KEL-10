@@ -4,6 +4,7 @@ import 'package:socio_care/core/navigation/route_names.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+/// Widget form untuk pendaftaran akun pengguna
 class RegisterFormWidget extends StatefulWidget {
   const RegisterFormWidget({super.key});
 
@@ -13,6 +14,8 @@ class RegisterFormWidget extends StatefulWidget {
 
 class _RegisterFormWidgetState extends State<RegisterFormWidget> {
   final _formKey = GlobalKey<FormState>();
+
+  // Text controllers
   final TextEditingController _nikController = TextEditingController();
   final TextEditingController _namaLengkapController = TextEditingController();
   final TextEditingController _nomorTeleponController = TextEditingController();
@@ -28,6 +31,7 @@ class _RegisterFormWidgetState extends State<RegisterFormWidget> {
   final TextEditingController _pendapatanPerBulanController =
       TextEditingController();
 
+  // UI state
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
   bool _isLoading = false;
@@ -47,6 +51,7 @@ class _RegisterFormWidgetState extends State<RegisterFormWidget> {
 
   @override
   void dispose() {
+    // Dispose all controllers
     _nikController.dispose();
     _namaLengkapController.dispose();
     _nomorTeleponController.dispose();
@@ -60,6 +65,7 @@ class _RegisterFormWidgetState extends State<RegisterFormWidget> {
     super.dispose();
   }
 
+  /// Validasi kekuatan password
   void _validatePassword() {
     final password = _kataSandiController.text;
     setState(() {
@@ -71,6 +77,7 @@ class _RegisterFormWidgetState extends State<RegisterFormWidget> {
     });
   }
 
+  /// Cek apakah password valid sesuai semua kriteria
   bool get _isPasswordValid =>
       _hasMinLength &&
       _hasUppercase &&
@@ -78,17 +85,12 @@ class _RegisterFormWidgetState extends State<RegisterFormWidget> {
       _hasNumber &&
       _hasSpecialChar;
 
+  /// Proses registrasi pengguna
   Future<void> _register() async {
     if (_formKey.currentState!.validate()) {
       // Check if password meets requirements
       if (!_isPasswordValid) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Password harus memenuhi semua persyaratan'),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        _showErrorMessage('Password harus memenuhi semua persyaratan');
         return;
       }
 
@@ -97,110 +99,17 @@ class _RegisterFormWidgetState extends State<RegisterFormWidget> {
       });
 
       try {
-        // 1. Check if NIK already exists
-        final QuerySnapshot nikQuery =
-            await FirebaseFirestore.instance
-                .collection('users')
-                .where('nik', isEqualTo: _nikController.text.trim())
-                .get();
-
-        if (nikQuery.docs.isNotEmpty) {
-          throw Exception('NIK sudah terdaftar');
-        }
-
-        // 2. Create user with Firebase Auth
-        final UserCredential userCredential = await FirebaseAuth.instance
-            .createUserWithEmailAndPassword(
-              email: _emailController.text.trim(),
-              password: _kataSandiController.text,
-            );
-
-        final User? user = userCredential.user;
-        if (user == null) {
-          throw Exception('Gagal membuat akun');
-        }
-
-        // 3. Send email verification
-        await user.sendEmailVerification();
-
-        // 4. Store user data in Firestore
-        await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-          'nik': _nikController.text.trim(),
-          'fullName': _namaLengkapController.text.trim(),
-          'phoneNumber': _nomorTeleponController.text.trim(),
-          'jobType': _jenisPekerjaanController.text.trim(),
-          'location': _lokasiController.text.trim(),
-          'email': _emailController.text.trim(),
-          'monthlyIncome':
-              double.tryParse(_pendapatanPerBulanController.text.trim()) ?? 0,
-          'createdAt': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
-          'isVerified':
-              false, // Will be manually verified by admin later if needed
-          'isActive': true,
-          'emailVerified': false,
-          'role': 'user',
-          'documentStatus':
-              'pending', // Can be updated later when user uploads documents
-        });
-
-        // 5. Update Firebase Auth display name
-        await user.updateDisplayName(_namaLengkapController.text.trim());
-
-        // 6. Show success message
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Registrasi berhasil! Silakan periksa email Anda untuk verifikasi.',
-              ),
-              backgroundColor: Colors.green,
-              behavior: SnackBarBehavior.floating,
-              duration: Duration(seconds: 5),
-            ),
-          );
-
-          // 7. Navigate to login page
-          context.go(RouteNames.login);
-        }
+        await _checkNikAvailability();
+        final user = await _createFirebaseUser();
+        await _sendEmailVerification(user);
+        await _storeUserData(user);
+        await _updateUserDisplayName(user);
+        _showSuccessMessage();
+        _navigateToLogin();
       } on FirebaseAuthException catch (e) {
-        String errorMessage;
-        switch (e.code) {
-          case 'email-already-in-use':
-            errorMessage = 'Email sudah terdaftar';
-            break;
-          case 'weak-password':
-            errorMessage = 'Password terlalu lemah';
-            break;
-          case 'invalid-email':
-            errorMessage = 'Format email tidak valid';
-            break;
-          case 'operation-not-allowed':
-            errorMessage = 'Operasi tidak diizinkan';
-            break;
-          default:
-            errorMessage = 'Terjadi kesalahan: ${e.message}';
-        }
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(errorMessage),
-              backgroundColor: Colors.red,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
+        _handleAuthError(e);
       } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(e.toString().replaceAll('Exception: ', '')),
-              backgroundColor: Colors.red,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
+        _showErrorMessage(e.toString().replaceAll('Exception: ', ''));
       } finally {
         if (mounted) {
           setState(() {
@@ -211,6 +120,127 @@ class _RegisterFormWidgetState extends State<RegisterFormWidget> {
     }
   }
 
+  /// Memeriksa apakah NIK sudah terdaftar
+  Future<void> _checkNikAvailability() async {
+    final QuerySnapshot nikQuery =
+        await FirebaseFirestore.instance
+            .collection('users')
+            .where('nik', isEqualTo: _nikController.text.trim())
+            .get();
+
+    if (nikQuery.docs.isNotEmpty) {
+      throw Exception('NIK sudah terdaftar');
+    }
+  }
+
+  /// Membuat user baru di Firebase Authentication
+  Future<User> _createFirebaseUser() async {
+    final UserCredential userCredential = await FirebaseAuth.instance
+        .createUserWithEmailAndPassword(
+          email: _emailController.text.trim(),
+          password: _kataSandiController.text,
+        );
+
+    final User? user = userCredential.user;
+    if (user == null) {
+      throw Exception('Gagal membuat akun');
+    }
+    return user;
+  }
+
+  /// Mengirim email verifikasi
+  Future<void> _sendEmailVerification(User user) async {
+    await user.sendEmailVerification();
+  }
+
+  /// Menyimpan data user ke Firestore
+  Future<void> _storeUserData(User user) async {
+    await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+      'nik': _nikController.text.trim(),
+      'fullName': _namaLengkapController.text.trim(),
+      'phoneNumber': _nomorTeleponController.text.trim(),
+      'jobType': _jenisPekerjaanController.text.trim(),
+      'location': _lokasiController.text.trim(),
+      'email': _emailController.text.trim(),
+      'monthlyIncome':
+          double.tryParse(_pendapatanPerBulanController.text.trim()) ?? 0,
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+      'isVerified': false, // Will be manually verified by admin later if needed
+      'isActive': true,
+      'emailVerified': false,
+      'role': 'user',
+      'documentStatus':
+          'pending', // Can be updated later when user uploads documents
+    });
+  }
+
+  /// Update display name di Firebase Auth
+  Future<void> _updateUserDisplayName(User user) async {
+    await user.updateDisplayName(_namaLengkapController.text.trim());
+  }
+
+  /// Menampilkan pesan sukses
+  void _showSuccessMessage() {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Registrasi berhasil! Silakan periksa email Anda untuk verifikasi.',
+        ),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+        duration: Duration(seconds: 5),
+      ),
+    );
+  }
+
+  /// Navigasi ke halaman login
+  void _navigateToLogin() {
+    if (!mounted) return;
+    context.go(RouteNames.login);
+  }
+
+  /// Menangani error Firebase Auth
+  void _handleAuthError(FirebaseAuthException e) {
+    if (!mounted) return;
+
+    String errorMessage;
+    switch (e.code) {
+      case 'email-already-in-use':
+        errorMessage = 'Email sudah terdaftar';
+        break;
+      case 'weak-password':
+        errorMessage = 'Password terlalu lemah';
+        break;
+      case 'invalid-email':
+        errorMessage = 'Format email tidak valid';
+        break;
+      case 'operation-not-allowed':
+        errorMessage = 'Operasi tidak diizinkan';
+        break;
+      default:
+        errorMessage = 'Terjadi kesalahan: ${e.message}';
+    }
+
+    _showErrorMessage(errorMessage);
+  }
+
+  /// Menampilkan pesan error
+  void _showErrorMessage(String message) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  /// Widget persyaratan password
   Widget _buildPasswordRequirement(String text, bool isValid) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2.0),
@@ -249,6 +279,7 @@ class _RegisterFormWidgetState extends State<RegisterFormWidget> {
     );
   }
 
+  /// Widget bagian form dengan judul dan ikon
   Widget _buildFormSection(String title, IconData icon, List<Widget> children) {
     return Container(
       margin: const EdgeInsets.only(bottom: 24.0),
@@ -295,6 +326,37 @@ class _RegisterFormWidgetState extends State<RegisterFormWidget> {
     );
   }
 
+  /// Dekorasi umum untuk input field
+  InputDecoration _getInputDecoration({
+    required String labelText,
+    required String hintText,
+    required IconData prefixIcon,
+    Widget? suffixIcon,
+    String? prefixText,
+  }) {
+    return InputDecoration(
+      labelText: labelText,
+      hintText: hintText,
+      filled: true,
+      fillColor: Colors.grey.shade50,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10.0),
+        borderSide: BorderSide.none,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10.0),
+        borderSide: BorderSide(color: Colors.grey.shade300),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10.0),
+        borderSide: BorderSide(color: Colors.blue.shade400, width: 2),
+      ),
+      prefixIcon: Icon(prefixIcon, color: Colors.grey.shade600),
+      suffixIcon: suffixIcon,
+      prefixText: prefixText,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Form(
@@ -307,27 +369,10 @@ class _RegisterFormWidgetState extends State<RegisterFormWidget> {
             // NIK Field
             TextFormField(
               controller: _nikController,
-              decoration: InputDecoration(
+              decoration: _getInputDecoration(
                 labelText: 'Nomor Induk Kependudukan (NIK)',
                 hintText: 'Masukkan NIK (16 digit)',
-                filled: true,
-                fillColor: Colors.grey.shade50,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10.0),
-                  borderSide: BorderSide.none,
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10.0),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10.0),
-                  borderSide: BorderSide(color: Colors.blue.shade400, width: 2),
-                ),
-                prefixIcon: Icon(
-                  Icons.credit_card,
-                  color: Colors.grey.shade600,
-                ),
+                prefixIcon: Icons.credit_card,
               ),
               keyboardType: TextInputType.number,
               enabled: !_isLoading,
@@ -349,27 +394,10 @@ class _RegisterFormWidgetState extends State<RegisterFormWidget> {
             // Nama Lengkap Field
             TextFormField(
               controller: _namaLengkapController,
-              decoration: InputDecoration(
+              decoration: _getInputDecoration(
                 labelText: 'Nama Lengkap',
                 hintText: 'Nama Lengkap sesuai KTP',
-                filled: true,
-                fillColor: Colors.grey.shade50,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10.0),
-                  borderSide: BorderSide.none,
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10.0),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10.0),
-                  borderSide: BorderSide(color: Colors.blue.shade400, width: 2),
-                ),
-                prefixIcon: Icon(
-                  Icons.person_outline,
-                  color: Colors.grey.shade600,
-                ),
+                prefixIcon: Icons.person_outline,
               ),
               keyboardType: TextInputType.name,
               enabled: !_isLoading,
@@ -388,24 +416,10 @@ class _RegisterFormWidgetState extends State<RegisterFormWidget> {
             // Nomor Telepon Field
             TextFormField(
               controller: _nomorTeleponController,
-              decoration: InputDecoration(
+              decoration: _getInputDecoration(
                 labelText: 'Nomor Telepon',
                 hintText: 'Contoh: 08123456789',
-                filled: true,
-                fillColor: Colors.grey.shade50,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10.0),
-                  borderSide: BorderSide.none,
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10.0),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10.0),
-                  borderSide: BorderSide(color: Colors.blue.shade400, width: 2),
-                ),
-                prefixIcon: Icon(Icons.phone, color: Colors.grey.shade600),
+                prefixIcon: Icons.phone,
               ),
               keyboardType: TextInputType.phone,
               enabled: !_isLoading,
@@ -426,27 +440,10 @@ class _RegisterFormWidgetState extends State<RegisterFormWidget> {
             // Jenis Pekerjaan Field
             TextFormField(
               controller: _jenisPekerjaanController,
-              decoration: InputDecoration(
+              decoration: _getInputDecoration(
                 labelText: 'Jenis Pekerjaan',
                 hintText: 'Contoh: Karyawan, Wiraswasta, dll',
-                filled: true,
-                fillColor: Colors.grey.shade50,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10.0),
-                  borderSide: BorderSide.none,
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10.0),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10.0),
-                  borderSide: BorderSide(color: Colors.blue.shade400, width: 2),
-                ),
-                prefixIcon: Icon(
-                  Icons.work_outline,
-                  color: Colors.grey.shade600,
-                ),
+                prefixIcon: Icons.work_outline,
               ),
               keyboardType: TextInputType.text,
               enabled: !_isLoading,
@@ -462,27 +459,10 @@ class _RegisterFormWidgetState extends State<RegisterFormWidget> {
             // Lokasi Field
             TextFormField(
               controller: _lokasiController,
-              decoration: InputDecoration(
+              decoration: _getInputDecoration(
                 labelText: 'Lokasi',
                 hintText: 'Kota/Kabupaten tempat tinggal',
-                filled: true,
-                fillColor: Colors.grey.shade50,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10.0),
-                  borderSide: BorderSide.none,
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10.0),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10.0),
-                  borderSide: BorderSide(color: Colors.blue.shade400, width: 2),
-                ),
-                prefixIcon: Icon(
-                  Icons.location_on,
-                  color: Colors.grey.shade600,
-                ),
+                prefixIcon: Icons.location_on,
               ),
               keyboardType: TextInputType.text,
               enabled: !_isLoading,
@@ -498,27 +478,10 @@ class _RegisterFormWidgetState extends State<RegisterFormWidget> {
             // Pendapatan Field
             TextFormField(
               controller: _pendapatanPerBulanController,
-              decoration: InputDecoration(
+              decoration: _getInputDecoration(
                 labelText: 'Pendapatan per Bulan',
                 hintText: 'Masukkan dalam Rupiah (contoh: 5000000)',
-                filled: true,
-                fillColor: Colors.grey.shade50,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10.0),
-                  borderSide: BorderSide.none,
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10.0),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10.0),
-                  borderSide: BorderSide(color: Colors.blue.shade400, width: 2),
-                ),
-                prefixIcon: Icon(
-                  Icons.attach_money,
-                  color: Colors.grey.shade600,
-                ),
+                prefixIcon: Icons.attach_money,
                 prefixText: 'Rp ',
               ),
               keyboardType: TextInputType.number,
@@ -543,24 +506,10 @@ class _RegisterFormWidgetState extends State<RegisterFormWidget> {
             // Email Field
             TextFormField(
               controller: _emailController,
-              decoration: InputDecoration(
+              decoration: _getInputDecoration(
                 labelText: 'Email',
                 hintText: 'contoh@email.com',
-                filled: true,
-                fillColor: Colors.grey.shade50,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10.0),
-                  borderSide: BorderSide.none,
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10.0),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10.0),
-                  borderSide: BorderSide(color: Colors.blue.shade400, width: 2),
-                ),
-                prefixIcon: Icon(Icons.email, color: Colors.grey.shade600),
+                prefixIcon: Icons.email,
               ),
               keyboardType: TextInputType.emailAddress,
               enabled: !_isLoading,
@@ -579,27 +528,10 @@ class _RegisterFormWidgetState extends State<RegisterFormWidget> {
             // Konfirmasi Email Field
             TextFormField(
               controller: _konfirmasiEmailController,
-              decoration: InputDecoration(
+              decoration: _getInputDecoration(
                 labelText: 'Konfirmasi Email',
                 hintText: 'Masukkan email yang sama',
-                filled: true,
-                fillColor: Colors.grey.shade50,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10.0),
-                  borderSide: BorderSide.none,
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10.0),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10.0),
-                  borderSide: BorderSide(color: Colors.blue.shade400, width: 2),
-                ),
-                prefixIcon: Icon(
-                  Icons.email_outlined,
-                  color: Colors.grey.shade600,
-                ),
+                prefixIcon: Icons.email_outlined,
               ),
               keyboardType: TextInputType.emailAddress,
               enabled: !_isLoading,
@@ -620,27 +552,10 @@ class _RegisterFormWidgetState extends State<RegisterFormWidget> {
             // Password Field
             TextFormField(
               controller: _kataSandiController,
-              decoration: InputDecoration(
+              decoration: _getInputDecoration(
                 labelText: 'Password',
                 hintText: 'Masukkan Kata Sandi',
-                filled: true,
-                fillColor: Colors.grey.shade50,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10.0),
-                  borderSide: BorderSide.none,
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10.0),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10.0),
-                  borderSide: BorderSide(color: Colors.blue.shade400, width: 2),
-                ),
-                prefixIcon: Icon(
-                  Icons.lock_outline,
-                  color: Colors.grey.shade600,
-                ),
+                prefixIcon: Icons.lock_outline,
                 suffixIcon: IconButton(
                   icon: Icon(
                     _isPasswordVisible
@@ -727,24 +642,10 @@ class _RegisterFormWidgetState extends State<RegisterFormWidget> {
             // Konfirmasi Password Field
             TextFormField(
               controller: _konfirmasiKataSandiController,
-              decoration: InputDecoration(
+              decoration: _getInputDecoration(
                 labelText: 'Konfirmasi Kata Sandi',
                 hintText: 'Masukkan kata sandi yang sama',
-                filled: true,
-                fillColor: Colors.grey.shade50,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10.0),
-                  borderSide: BorderSide.none,
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10.0),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10.0),
-                  borderSide: BorderSide(color: Colors.blue.shade400, width: 2),
-                ),
-                prefixIcon: Icon(Icons.lock, color: Colors.grey.shade600),
+                prefixIcon: Icons.lock,
                 suffixIcon: IconButton(
                   icon: Icon(
                     _isConfirmPasswordVisible
@@ -777,7 +678,7 @@ class _RegisterFormWidgetState extends State<RegisterFormWidget> {
             ),
           ]),
 
-          // Info Notice (Optional - informing about document upload later)
+          // Info Notice
           Container(
             padding: const EdgeInsets.all(20.0),
             decoration: BoxDecoration(

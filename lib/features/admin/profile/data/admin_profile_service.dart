@@ -1,18 +1,35 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'dart:developer' as developer;
 import 'models/admin_profile_model.dart';
 
+/// Service untuk mengelola profil administrator
+///
+/// Menyediakan fungsi-fungsi untuk membaca dan memperbarui data profil admin,
+/// mengelola gambar profil, dan mendapatkan statistik admin
 class AdminProfileService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseStorage _storage = FirebaseStorage.instance;
+  // Firebase services
+  final FirebaseFirestore _firestore;
+  final FirebaseAuth _auth;
+  final FirebaseStorage _storage;
 
+  // Collection name
   static const String _collectionName = 'admin_profiles';
+  static const String _storagePath = 'admin_profiles';
 
-  // Get current admin profile
+  /// Konstruktor dengan dependency injection untuk memudahkan testing
+  AdminProfileService({
+    FirebaseFirestore? firestore,
+    FirebaseAuth? auth,
+    FirebaseStorage? storage,
+  }) : 
+    _firestore = firestore ?? FirebaseFirestore.instance,
+    _auth = auth ?? FirebaseAuth.instance, 
+    _storage = storage ?? FirebaseStorage.instance;
+
+  /// Mendapatkan profil admin yang sedang login
   Future<AdminProfileModel?> getCurrentAdminProfile() async {
     try {
       final user = _auth.currentUser;
@@ -23,16 +40,16 @@ class AdminProfileService {
       if (doc.exists) {
         return AdminProfileModel.fromFirestore(doc);
       } else {
-        // Create default profile if doesn't exist
+        // Buat profil default jika belum ada
         return await _createDefaultProfile(user);
       }
     } catch (e) {
-      developer.log('Error getting admin profile: $e', name: 'AdminProfileService');
+      debugPrint('Error getting admin profile: $e');
       return null;
     }
   }
 
-  // Create default profile for new admin
+  /// Membuat profil default untuk admin baru
   Future<AdminProfileModel?> _createDefaultProfile(User user) async {
     try {
       final now = DateTime.now();
@@ -46,23 +63,28 @@ class AdminProfileService {
         createdAt: now,
         updatedAt: now,
         lastLogin: now,
-        permissions: {
-          'manageUsers': true,
-          'manageContent': true,
-          'managePrograms': true,
-          'viewReports': true,
-        },
+        permissions: _getDefaultPermissions(),
       );
 
       await _firestore.collection(_collectionName).doc(user.uid).set(defaultProfile.toFirestore());
       return defaultProfile;
     } catch (e) {
-      developer.log('Error creating default profile: $e', name: 'AdminProfileService');
+      debugPrint('Error creating default profile: $e');
       return null;
     }
   }
 
-  // Update admin profile
+  /// Mendapatkan permission default untuk admin baru
+  Map<String, dynamic> _getDefaultPermissions() {
+    return {
+      'manageUsers': true,
+      'manageContent': true,
+      'managePrograms': true,
+      'viewReports': true,
+    };
+  }
+
+  /// Memperbarui profil admin
   Future<bool> updateProfile({
     required String fullName,
     required String phoneNumber,
@@ -73,38 +95,58 @@ class AdminProfileService {
       final user = _auth.currentUser;
       if (user == null) return false;
 
-      String? profilePictureUrl;
-      
-      // Upload profile image if provided
-      if (profileImage != null) {
-        profilePictureUrl = await _uploadProfileImage(user.uid, profileImage);
-      }
+      // Siapkan data update
+      final Map<String, dynamic> updateData = await _prepareProfileUpdateData(
+        userId: user.uid,
+        fullName: fullName,
+        phoneNumber: phoneNumber, 
+        position: position,
+        profileImage: profileImage,
+      );
 
-      final updateData = {
-        'fullName': fullName.trim(),
-        'phoneNumber': phoneNumber.trim(),
-        'position': position.trim(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      };
+      // Update di Firestore
+      await _firestore
+          .collection(_collectionName)
+          .doc(user.uid)
+          .update(updateData);
 
-      // Add profile picture URL if uploaded
-      if (profilePictureUrl != null) {
-        updateData['profilePictureUrl'] = profilePictureUrl;
-      }
-
-      await _firestore.collection(_collectionName).doc(user.uid).update(updateData);
-
-      // Update Firebase Auth display name
+      // Update display name di Firebase Auth
       await user.updateDisplayName(fullName.trim());
 
       return true;
     } catch (e) {
-      developer.log('Error updating profile: $e', name: 'AdminProfileService');
+      debugPrint('Error updating profile: $e');
       return false;
     }
   }
 
-  // Update last login timestamp
+  /// Menyiapkan data untuk update profil
+  Future<Map<String, dynamic>> _prepareProfileUpdateData({
+    required String userId,
+    required String fullName,
+    required String phoneNumber,
+    required String position,
+    File? profileImage,
+  }) async {
+    final Map<String, dynamic> updateData = {
+      'fullName': fullName.trim(),
+      'phoneNumber': phoneNumber.trim(),
+      'position': position.trim(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+
+    // Upload gambar profil jika ada
+    if (profileImage != null) {
+      final profilePictureUrl = await _uploadProfileImage(userId, profileImage);
+      if (profilePictureUrl != null) {
+        updateData['profilePictureUrl'] = profilePictureUrl;
+      }
+    }
+
+    return updateData;
+  }
+
+  /// Memperbarui timestamp login terakhir
   Future<void> updateLastLogin() async {
     try {
       final user = _auth.currentUser;
@@ -114,11 +156,11 @@ class AdminProfileService {
         'lastLogin': FieldValue.serverTimestamp(),
       });
     } catch (e) {
-      developer.log('Error updating last login: $e', name: 'AdminProfileService');
+      debugPrint('Error updating last login: $e');
     }
   }
 
-  // Get managed programs
+  /// Mendapatkan daftar program yang dikelola admin
   Future<List<Map<String, dynamic>>> getManagedPrograms() async {
     try {
       final user = _auth.currentUser;
@@ -127,34 +169,37 @@ class AdminProfileService {
       final adminProfile = await getCurrentAdminProfile();
       if (adminProfile == null) return [];
 
-      // Get programs that this admin manages
+      // Ambil program yang dikelola oleh admin ini
       final programsSnapshot = await _firestore
           .collection('programs')
           .where('managedBy', isEqualTo: user.uid)
           .orderBy('createdAt', descending: true)
           .get();
 
-      return programsSnapshot.docs.map((doc) {
-        final data = doc.data();
-        return {
-          'id': doc.id,
-          'name': data['name'] ?? '',
-          'description': data['description'] ?? '',
-          'status': data['status'] ?? 'active',
-          'totalApplicants': data['totalApplicants'] ?? 0,
-          'createdAt': data['createdAt'] as Timestamp?,
-        };
-      }).toList();
+      return programsSnapshot.docs.map(_mapProgramDocToData).toList();
     } catch (e) {
-      developer.log('Error getting managed programs: $e', name: 'AdminProfileService');
+      debugPrint('Error getting managed programs: $e');
       return [];
     }
   }
 
-  // Upload profile image
+  /// Mengkonversi dokumen program Firestore menjadi Map data
+  Map<String, dynamic> _mapProgramDocToData(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    return {
+      'id': doc.id,
+      'name': data['name'] ?? '',
+      'description': data['description'] ?? '',
+      'status': data['status'] ?? 'active',
+      'totalApplicants': data['totalApplicants'] ?? 0,
+      'createdAt': data['createdAt'] as Timestamp?,
+    };
+  }
+
+  /// Upload gambar profil
   Future<String?> _uploadProfileImage(String adminId, File imageFile) async {
     try {
-      final fileName = 'admin_profiles/$adminId/profile_picture.jpg';
+      final fileName = '$_storagePath/$adminId/profile_picture.jpg';
       final ref = _storage.ref().child(fileName);
       
       final uploadTask = ref.putFile(imageFile);
@@ -162,54 +207,74 @@ class AdminProfileService {
       
       return await snapshot.ref.getDownloadURL();
     } catch (e) {
-      developer.log('Error uploading profile image: $e', name: 'AdminProfileService');
+      debugPrint('Error uploading profile image: $e');
       return null;
     }
   }
 
-  // Delete profile image
+  /// Menghapus gambar profil
   Future<void> deleteProfileImage(String imageUrl) async {
     try {
       final ref = _storage.refFromURL(imageUrl);
       await ref.delete();
     } catch (e) {
-      developer.log('Error deleting profile image: $e', name: 'AdminProfileService');
+      debugPrint('Error deleting profile image: $e');
     }
   }
 
-  // Get admin statistics
+  /// Mendapatkan statistik admin
   Future<Map<String, int>> getAdminStatistics() async {
     try {
       final user = _auth.currentUser;
       if (user == null) return {};
 
       final results = await Future.wait([
-        _firestore.collection('users').count().get(),
-        _firestore.collection('programs').where('managedBy', isEqualTo: user.uid).count().get(),
-        _firestore.collection('applications').where('reviewedBy', isEqualTo: user.uid).count().get(),
-        _firestore.collection('education_content').where('authorId', isEqualTo: user.uid).count().get(),
+        _getCollectionCount('users'),
+        _getFilteredCollectionCount('programs', 'managedBy', user.uid),
+        _getFilteredCollectionCount('applications', 'reviewedBy', user.uid),
+        _getFilteredCollectionCount('education_content', 'authorId', user.uid),
       ]);
 
       return {
-        'totalUsers': results[0].count ?? 0,
-        'managedPrograms': results[1].count ?? 0,
-        'reviewedApplications': results[2].count ?? 0,
-        'publishedContent': results[3].count ?? 0,
+        'totalUsers': results[0],
+        'managedPrograms': results[1],
+        'reviewedApplications': results[2],
+        'publishedContent': results[3],
       };
     } catch (e) {
-      developer.log('Error getting admin statistics: $e', name: 'AdminProfileService');
+      debugPrint('Error getting admin statistics: $e');
       return {};
     }
   }
 
-  // Change password
+  /// Helper untuk mendapatkan jumlah dokumen dalam collection
+  Future<int> _getCollectionCount(String collectionPath) async {
+    final countSnapshot = await _firestore.collection(collectionPath).count().get();
+    return countSnapshot.count ?? 0;
+  }
+
+  /// Helper untuk mendapatkan jumlah dokumen dalam collection dengan filter
+  Future<int> _getFilteredCollectionCount(
+    String collectionPath, 
+    String fieldPath, 
+    String fieldValue
+  ) async {
+    final countSnapshot = await _firestore
+        .collection(collectionPath)
+        .where(fieldPath, isEqualTo: fieldValue)
+        .count()
+        .get();
+    return countSnapshot.count ?? 0;
+  }
+
+  /// Mengganti password admin
   Future<bool> changePassword({
     required String currentPassword,
     required String newPassword,
   }) async {
     try {
       final user = _auth.currentUser;
-      if (user == null) return false;
+      if (user == null || user.email == null) return false;
 
       // Re-authenticate user
       final credential = EmailAuthProvider.credential(
@@ -224,23 +289,23 @@ class AdminProfileService {
       
       return true;
     } catch (e) {
-      developer.log('Error changing password: $e', name: 'AdminProfileService');
+      debugPrint('Error changing password: $e');
       return false;
     }
   }
 
-  // Check if admin has permission
+  /// Memeriksa apakah admin memiliki permission
   bool hasPermission(AdminProfileModel? profile, String permission) {
     if (profile == null) return false;
     return profile.permissions[permission] == true;
   }
 
-  // Sign out
+  /// Sign out admin
   Future<void> signOut() async {
     try {
       await _auth.signOut();
     } catch (e) {
-      developer.log('Error signing out: $e', name: 'AdminProfileService');
+      debugPrint('Error signing out: $e');
     }
   }
 }

@@ -4,6 +4,17 @@ import 'package:socio_care/core/navigation/route_names.dart';
 import '../../data/admin_program_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+/// Kelas untuk menyimpan informasi status
+class StatusInfo {
+  final Color color;
+  final IconData icon;
+  
+  StatusInfo(this.color, this.icon);
+}
+
+/// Halaman detail program untuk admin
+///
+/// Menampilkan informasi lengkap program dan daftar pengajuan
 class AdminProgramDetailPage extends StatefulWidget {
   final String programId;
 
@@ -15,17 +26,51 @@ class AdminProgramDetailPage extends StatefulWidget {
 
 class _AdminProgramDetailPageState extends State<AdminProgramDetailPage> 
     with TickerProviderStateMixin {
+  // Service
   final AdminProgramService _programService = AdminProgramService();
   
+  // State variables
   Map<String, dynamic>? _programData;
   List<Map<String, dynamic>> _applications = [];
   bool _isLoading = true;
   String? _errorMessage;
   
+  // Animation controllers
   late AnimationController _fadeController;
   late AnimationController _slideController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
+
+  // UI Constants
+  static const double _spacing = 16.0;
+  static const double _largeSpacing = 24.0;
+  static const double _mediumSpacing = 20.0;
+  static const double _smallSpacing = 12.0;
+  static const double _microSpacing = 8.0;
+  static const double _tinySpacing = 6.0;
+  static const double _miniSpacing = 4.0;
+  
+  static const double _borderRadius = 20.0;
+  static const double _mediumBorderRadius = 16.0;
+  static const double _smallBorderRadius = 12.0;
+  static const double _microBorderRadius = 8.0;
+  
+  static const double _largeIconSize = 64.0;
+  static const double _mediumIconSize = 48.0;
+  // Removed unused constants
+  static const double _smallIconSize = 20.0;
+  static const double _microIconSize = 16.0;
+  static const double _tinyIconSize = 14.0;
+  
+  static const double _headerImageHeight = 250.0;
+  
+  static const double _headingTextSize = 24.0;
+  static const double _subheadingTextSize = 20.0;
+  // Removed unused constant
+  static const double _bodyTextSize = 16.0;
+  static const double _captionTextSize = 14.0;
+  static const double _smallTextSize = 12.0;
+  static const double _tinyTextSize = 10.0;
 
   @override
   void initState() {
@@ -34,6 +79,7 @@ class _AdminProgramDetailPageState extends State<AdminProgramDetailPage>
     _loadProgramData();
   }
 
+  /// Menyiapkan animasi untuk halaman
   void _setupAnimations() {
     _fadeController = AnimationController(
       duration: const Duration(milliseconds: 800),
@@ -59,12 +105,15 @@ class _AdminProgramDetailPageState extends State<AdminProgramDetailPage>
     super.dispose();
   }
 
+  /// Memuat data program dari service
   Future<void> _loadProgramData() async {
     try {
       final programData = await _programService.getProgramById(widget.programId);
       final applications = await _programService.getApplicationsByProgramId(widget.programId);
 
-      if (programData != null && mounted) {
+      if (!mounted) return;
+      
+      if (programData != null) {
         setState(() {
           _programData = programData;
           _applications = applications;
@@ -72,118 +121,135 @@ class _AdminProgramDetailPageState extends State<AdminProgramDetailPage>
         });
         _fadeController.forward();
         _slideController.forward();
-      } else if (mounted) {
+      } else {
         setState(() {
           _errorMessage = 'Program tidak ditemukan';
           _isLoading = false;
         });
       }
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _errorMessage = 'Gagal memuat data program: ${e.toString()}';
-          _isLoading = false;
-        });
-      }
+      if (!mounted) return;
+      
+      setState(() {
+        _errorMessage = 'Gagal memuat data program: ${e.toString()}';
+        _isLoading = false;
+      });
     }
   }
 
+  /// Menuju halaman edit program
   void _editProgram() {
     context.go('${RouteNames.adminEditProgram}/${widget.programId}');
   }
 
+  /// Menghapus program dengan konfirmasi
   Future<void> _deleteProgram() async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.red.shade100,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.warning_rounded, color: Colors.red.shade600),
-            ),
-            const SizedBox(width: 12),
-            const Text('Konfirmasi Hapus'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Apakah Anda yakin ingin menghapus program ini?'),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.red.shade50,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.red.shade200),
-              ),
-              child: Text(
-                _programData?['programName'] ?? '',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.red.shade800,
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Tindakan ini tidak dapat dibatalkan!',
-              style: TextStyle(
-                color: Colors.red.shade600,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Batal'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red.shade600,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Hapus'),
-          ),
-        ],
-      ),
+      builder: (context) => _buildDeleteConfirmationDialog(),
     );
 
     if (confirmed == true) {
       try {
         final success = await _programService.deleteProgram(widget.programId);
-        if (success && mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Program "${_programData?['programName']}" berhasil dihapus'),
-              backgroundColor: Colors.green.shade600,
-            ),
+        
+        if (!mounted) return;
+        
+        if (success) {
+          _showSnackBar(
+            'Program "${_programData?['programName']}" berhasil dihapus',
+            Colors.green.shade600,
           );
           context.go(RouteNames.adminProgramList);
         }
       } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Gagal menghapus program: $e'),
-              backgroundColor: Colors.red.shade600,
-            ),
-          );
-        }
+        if (!mounted) return;
+        
+        _showSnackBar(
+          'Gagal menghapus program: $e',
+          Colors.red.shade600,
+        );
       }
     }
   }
+  
+  /// Menampilkan dialog konfirmasi hapus program
+  Widget _buildDeleteConfirmationDialog() {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_borderRadius)),
+      title: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(_microSpacing),
+            decoration: BoxDecoration(
+              color: Colors.red.shade100,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.warning_rounded, color: Colors.red.shade600),
+          ),
+          const SizedBox(width: _smallSpacing),
+          const Text('Konfirmasi Hapus'),
+        ],
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Apakah Anda yakin ingin menghapus program ini?'),
+          const SizedBox(height: _spacing),
+          Container(
+            padding: const EdgeInsets.all(_smallSpacing),
+            decoration: BoxDecoration(
+              color: Colors.red.shade50,
+              borderRadius: BorderRadius.circular(_microBorderRadius),
+              border: Border.all(color: Colors.red.shade200),
+            ),
+            child: Text(
+              _programData?['programName'] ?? '',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.red.shade800,
+              ),
+            ),
+          ),
+          const SizedBox(height: _smallSpacing),
+          Text(
+            'Tindakan ini tidak dapat dibatalkan!',
+            style: TextStyle(
+              color: Colors.red.shade600,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('Batal'),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.red.shade600,
+            foregroundColor: Colors.white,
+          ),
+          child: const Text('Hapus'),
+        ),
+      ],
+    );
+  }
+  
+  /// Menampilkan snackbar
+  void _showSnackBar(String message, Color backgroundColor) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: backgroundColor,
+      ),
+    );
+  }
 
+  /// Mendapatkan warna sesuai status program
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
       case 'active': return Colors.green;
@@ -193,6 +259,7 @@ class _AdminProgramDetailPageState extends State<AdminProgramDetailPage>
     }
   }
 
+  /// Mendapatkan ikon sesuai status program
   IconData _getStatusIcon(String status) {
     switch (status.toLowerCase()) {
       case 'active': return Icons.check_circle_rounded;
@@ -202,6 +269,7 @@ class _AdminProgramDetailPageState extends State<AdminProgramDetailPage>
     }
   }
 
+  /// Mendapatkan ikon sesuai kategori program
   IconData _getCategoryIcon(String category) {
     switch (category.toLowerCase()) {
       case 'kesehatan': return Icons.medical_services_rounded;
@@ -212,68 +280,33 @@ class _AdminProgramDetailPageState extends State<AdminProgramDetailPage>
     }
   }
 
+  /// Format timestamp menjadi string tanggal
   String _formatDate(Timestamp? timestamp) {
     if (timestamp == null) return 'Tidak diketahui';
     final date = timestamp.toDate();
     return '${date.day}/${date.month}/${date.year}';
   }
+  
+  /// Mendapatkan informasi status pengajuan
+  StatusInfo _getStatusInfo(String status) {
+    switch (status) {
+      case 'approved':
+        return StatusInfo(Colors.green, Icons.check_circle_rounded);
+      case 'rejected':
+        return StatusInfo(Colors.red, Icons.cancel_rounded);
+      default:
+        return StatusInfo(Colors.orange, Icons.pending_rounded);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return Scaffold(
-        body: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Colors.blue.shade900, Colors.blue.shade600],
-            ),
-          ),
-          child: const Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                CircularProgressIndicator(color: Colors.white),
-                SizedBox(height: 16),
-                Text(
-                  'Memuat detail program...',
-                  style: TextStyle(color: Colors.white, fontSize: 16),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
+      return _buildLoadingScreen();
     }
 
     if (_errorMessage != null) {
-      return Scaffold(
-        body: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Colors.red.shade900, Colors.red.shade600],
-            ),
-          ),
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.error_outline, size: 64, color: Colors.white),
-                const SizedBox(height: 16),
-                Text(
-                  _errorMessage!,
-                  style: const TextStyle(color: Colors.white, fontSize: 16),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: () => context.go(RouteNames.adminProgramList),
-                  child: const Text('Kembali ke Daftar Program'),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
+      return _buildErrorScreen();
     }
 
     return Scaffold(
@@ -304,101 +337,170 @@ class _AdminProgramDetailPageState extends State<AdminProgramDetailPage>
       ),
     );
   }
+  
+  /// Membangun layar loading
+  Widget _buildLoadingScreen() {
+    return Scaffold(
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.blue.shade900, Colors.blue.shade600],
+          ),
+        ),
+        child: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(color: Colors.white),
+              SizedBox(height: _spacing),
+              Text(
+                'Memuat detail program...',
+                style: TextStyle(color: Colors.white, fontSize: _bodyTextSize),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+  
+  /// Membangun layar error
+  Widget _buildErrorScreen() {
+    return Scaffold(
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.red.shade900, Colors.red.shade600],
+          ),
+        ),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: _largeIconSize, color: Colors.white),
+              const SizedBox(height: _spacing),
+              Text(
+                _errorMessage!,
+                style: const TextStyle(color: Colors.white, fontSize: _bodyTextSize),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: _largeSpacing),
+              ElevatedButton(
+                onPressed: () => context.go(RouteNames.adminProgramList),
+                child: const Text('Kembali ke Daftar Program'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
+  /// Membangun app bar kustom
   Widget _buildCustomAppBar() {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(_mediumSpacing),
       child: Row(
         children: [
-          // Back Button
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: IconButton(
-              icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
-              onPressed: () => context.go(RouteNames.adminProgramList),
-            ),
-          ),
-          const SizedBox(width: 16),
-
-          // Title
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Detail Program',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  _programData?['programName'] ?? '',
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.8),
-                    fontSize: 14,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-
-          // Action Buttons
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: IconButton(
-              icon: const Icon(Icons.edit_rounded, color: Colors.white),
-              onPressed: _editProgram,
-              tooltip: 'Edit Program',
+          _buildBackButton(),
+          const SizedBox(width: _spacing),
+          _buildAppBarTitle(),
+          _buildEditButton(),
+          const SizedBox(width: _microSpacing),
+          _buildDeleteButton(),
+        ],
+      ),
+    );
+  }
+  
+  /// Membangun tombol kembali di app bar
+  Widget _buildBackButton() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withAlpha(51),  // 0.2 * 255 = 51
+        borderRadius: BorderRadius.circular(_smallBorderRadius),
+      ),
+      child: IconButton(
+        icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+        onPressed: () => context.go(RouteNames.adminProgramList),
+      ),
+    );
+  }
+  
+  /// Membangun judul app bar
+  Widget _buildAppBarTitle() {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Detail Program',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: _headingTextSize,
+              fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(width: 8),
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.red.withOpacity(0.8),
-              borderRadius: BorderRadius.circular(12),
+          Text(
+            _programData?['programName'] ?? '',
+            style: TextStyle(
+              color: Colors.white.withAlpha(204),  // 0.8 * 255 = 204
+              fontSize: _captionTextSize,
             ),
-            child: IconButton(
-              icon: const Icon(Icons.delete_rounded, color: Colors.white),
-              onPressed: _deleteProgram,
-              tooltip: 'Hapus Program',
-            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
     );
   }
+  
+  /// Membangun tombol edit di app bar
+  Widget _buildEditButton() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withAlpha(51),  // 0.2 * 255 = 51
+        borderRadius: BorderRadius.circular(_smallBorderRadius),
+      ),
+      child: IconButton(
+        icon: const Icon(Icons.edit_rounded, color: Colors.white),
+        onPressed: _editProgram,
+        tooltip: 'Edit Program',
+      ),
+    );
+  }
+  
+  /// Membangun tombol hapus di app bar
+  Widget _buildDeleteButton() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.red.withAlpha(204),  // 0.8 * 255 = 204
+        borderRadius: BorderRadius.circular(_smallBorderRadius),
+      ),
+      child: IconButton(
+        icon: const Icon(Icons.delete_rounded, color: Colors.white),
+        onPressed: _deleteProgram,
+        tooltip: 'Hapus Program',
+      ),
+    );
+  }
 
+  /// Membangun konten utama halaman
   Widget _buildContent() {
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(24),
-          topRight: Radius.circular(24),
+          topLeft: Radius.circular(_largeSpacing),
+          topRight: Radius.circular(_largeSpacing),
         ),
       ),
       child: SingleChildScrollView(
         child: Column(
           children: [
-            // Header Image & Basic Info
             _buildHeaderSection(),
-            
-            // Program Details
             _buildDetailsSection(),
-            
-            // Applications Section
             _buildApplicationsSection(),
-            
             const SizedBox(height: 32),
           ],
         ),
@@ -406,182 +508,224 @@ class _AdminProgramDetailPageState extends State<AdminProgramDetailPage>
     );
   }
 
+  /// Membangun bagian header dengan gambar dan info dasar
   Widget _buildHeaderSection() {
-    return Container(
-      child: Column(
-        children: [
-          // Image Section
-          if (_programData?['imageUrl'] != null && _programData!['imageUrl'].isNotEmpty)
-            Container(
-              height: 250,
-              width: double.infinity,
-              child: Stack(
-                children: [
-                  ClipRRect(
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(24),
-                      topRight: Radius.circular(24),
-                    ),
-                    child: Image.network(
-                      _programData!['imageUrl'],
-                      fit: BoxFit.cover,
-                      width: double.infinity,
-                      height: double.infinity,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          color: Colors.grey.shade200,
-                          child: Icon(
-                            Icons.image_not_supported_rounded,
-                            size: 64,
-                            color: Colors.grey.shade400,
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  // Status Overlay
-                  Positioned(
-                    top: 16,
-                    right: 16,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: _getStatusColor(_programData!['status']).withOpacity(0.9),
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            _getStatusIcon(_programData!['status']),
-                            size: 16,
-                            color: Colors.white,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            _programData!['status'].toUpperCase(),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
+    if (_programData == null) return const SizedBox.shrink();
+    
+    return Column(
+      children: [
+        // Image Section
+        if (_hasValidImageUrl())
+          SizedBox(
+            height: _headerImageHeight,
+            width: double.infinity,
+            child: Stack(
+              children: [
+                _buildHeaderImage(),
+                _buildStatusOverlay(),
+              ],
+            ),
+          ),
+
+        // Basic Info Card
+        _buildBasicInfoCard(),
+      ],
+    );
+  }
+  
+  /// Mengecek apakah program memiliki URL gambar yang valid
+  bool _hasValidImageUrl() {
+    return _programData?['imageUrl'] != null && _programData!['imageUrl'].isNotEmpty;
+  }
+  
+  /// Membangun gambar header program
+  Widget _buildHeaderImage() {
+    return ClipRRect(
+      borderRadius: const BorderRadius.only(
+        topLeft: Radius.circular(_largeSpacing),
+        topRight: Radius.circular(_largeSpacing),
+      ),
+      child: Image.network(
+        _programData!['imageUrl'],
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
+            color: Colors.grey.shade200,
+            child: Icon(
+              Icons.image_not_supported_rounded,
+              size: _largeIconSize,
+              color: Colors.grey.shade400,
+            ),
+          );
+        },
+      ),
+    );
+  }
+  
+  /// Membangun overlay status di atas gambar
+  Widget _buildStatusOverlay() {
+    return Positioned(
+      top: _spacing,
+      right: _spacing,
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: _smallSpacing,
+          vertical: _microSpacing,
+        ),
+        decoration: BoxDecoration(
+          color: _getStatusColor(_programData!['status']).withAlpha(230),  // 0.9 * 255 = 230
+          borderRadius: BorderRadius.circular(_mediumSpacing),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(77),  // 0.3 * 255 = 77
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              _getStatusIcon(_programData!['status']),
+              size: _tinyIconSize,
+              color: Colors.white,
+            ),
+            const SizedBox(width: _tinySpacing),
+            Text(
+              _programData!['status'].toUpperCase(),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: _smallTextSize,
+                fontWeight: FontWeight.bold,
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
 
-          // Basic Info Card
-          Container(
-            margin: const EdgeInsets.all(20),
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.08),
-                  blurRadius: 20,
-                  offset: const Offset(0, 8),
-                ),
-              ],
+  /// Membangun kartu info dasar program
+  Widget _buildBasicInfoCard() {
+    return Container(
+      margin: const EdgeInsets.all(_mediumSpacing),
+      padding: const EdgeInsets.all(_largeSpacing),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(_mediumBorderRadius),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(20),  // 0.08 * 255 = 20
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Program Name
+          Text(
+            _programData!['programName'],
+            style: const TextStyle(
+              fontSize: _headingTextSize,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Program Name
-                Text(
-                  _programData!['programName'],
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
+          ),
+          const SizedBox(height: _spacing),
+
+          // Category & Stats Row
+          Row(
+            children: [
+              _buildCategoryBadge(),
+              const SizedBox(width: _smallSpacing),
+              _buildApplicationsCountBadge(),
+            ],
+          ),
+          const SizedBox(height: _spacing),
+
+          // Meta Info
+          _buildInfoRow(
+            Icons.business_rounded, 
+            'Penyelenggara', 
+            _programData!['organizer'],
+          ),
+          const SizedBox(height: _microSpacing),
+          _buildInfoRow(
+            Icons.group_rounded, 
+            'Target Penerima', 
+            _programData!['targetAudience'],
+          ),
+          const SizedBox(height: _microSpacing),
+          _buildInfoRow(
+            Icons.calendar_today_rounded, 
+            'Dibuat', 
+            _formatDate(_programData!['createdAt']),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  /// Membangun badge kategori program
+  Widget _buildCategoryBadge() {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(_smallSpacing),
+        decoration: BoxDecoration(
+          color: Colors.blue.shade50,
+          borderRadius: BorderRadius.circular(_smallBorderRadius),
+          border: Border.all(color: Colors.blue.shade200),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              _getCategoryIcon(_programData!['category']),
+              color: Colors.blue.shade600,
+              size: _smallIconSize,
+            ),
+            const SizedBox(width: _microSpacing),
+            Expanded(
+              child: Text(
+                _programData!['category'],
+                style: TextStyle(
+                  color: Colors.blue.shade700,
+                  fontWeight: FontWeight.w600,
                 ),
-                const SizedBox(height: 16),
-
-                // Category & Stats Row
-                Row(
-                  children: [
-                    // Category
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.shade50,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.blue.shade200),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              _getCategoryIcon(_programData!['category']),
-                              color: Colors.blue.shade600,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                _programData!['category'],
-                                style: TextStyle(
-                                  color: Colors.blue.shade700,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-
-                    // Applications Count
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.purple.shade50,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.purple.shade200),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.assignment_rounded,
-                            color: Colors.purple.shade600,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '${_programData!['totalApplications']} Pengajuan',
-                            style: TextStyle(
-                              color: Colors.purple.shade700,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                // Meta Info
-                _buildInfoRow(Icons.business_rounded, 'Penyelenggara', _programData!['organizer']),
-                const SizedBox(height: 8),
-                _buildInfoRow(Icons.group_rounded, 'Target Penerima', _programData!['targetAudience']),
-                const SizedBox(height: 8),
-                _buildInfoRow(Icons.calendar_today_rounded, 'Dibuat', _formatDate(_programData!['createdAt'])),
-              ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  /// Membangun badge jumlah pengajuan
+  Widget _buildApplicationsCountBadge() {
+    return Container(
+      padding: const EdgeInsets.all(_smallSpacing),
+      decoration: BoxDecoration(
+        color: Colors.purple.shade50,
+        borderRadius: BorderRadius.circular(_smallBorderRadius),
+        border: Border.all(color: Colors.purple.shade200),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.assignment_rounded,
+            color: Colors.purple.shade600,
+            size: _smallIconSize,
+          ),
+          const SizedBox(width: _microSpacing),
+          Text(
+            '${_programData!['totalApplications']} Pengajuan',
+            style: TextStyle(
+              color: Colors.purple.shade700,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -589,9 +733,10 @@ class _AdminProgramDetailPageState extends State<AdminProgramDetailPage>
     );
   }
 
+  /// Membangun bagian detail program
   Widget _buildDetailsSection() {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
+      margin: const EdgeInsets.symmetric(horizontal: _mediumSpacing),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -602,7 +747,7 @@ class _AdminProgramDetailPageState extends State<AdminProgramDetailPage>
             _programData!['description'],
             Colors.blue,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: _spacing),
 
           // Terms and Conditions
           _buildDetailCard(
@@ -611,7 +756,7 @@ class _AdminProgramDetailPageState extends State<AdminProgramDetailPage>
             _programData!['termsAndConditions'],
             Colors.orange,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: _spacing),
 
           // Registration Guide
           _buildDetailCard(
@@ -625,9 +770,10 @@ class _AdminProgramDetailPageState extends State<AdminProgramDetailPage>
     );
   }
 
+  /// Membangun bagian daftar pengajuan
   Widget _buildApplicationsSection() {
     return Container(
-      margin: const EdgeInsets.all(20),
+      margin: const EdgeInsets.all(_mediumSpacing),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -635,82 +781,92 @@ class _AdminProgramDetailPageState extends State<AdminProgramDetailPage>
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(_microSpacing),
                 decoration: BoxDecoration(
                   color: Colors.purple.shade100,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(_microBorderRadius),
                 ),
                 child: Icon(
                   Icons.assignment_rounded,
                   color: Colors.purple.shade600,
-                  size: 20,
+                  size: _smallIconSize,
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: _smallSpacing),
               Text(
                 'Daftar Pengajuan (${_applications.length})',
                 style: const TextStyle(
-                  fontSize: 20,
+                  fontSize: _subheadingTextSize,
                   fontWeight: FontWeight.bold,
                   color: Colors.black87,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: _spacing),
 
           // Applications List
-          if (_applications.isEmpty)
-            Container(
-              padding: const EdgeInsets.all(32),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade50,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.grey.shade200),
-              ),
-              child: Column(
-                children: [
-                  Icon(
-                    Icons.assignment_outlined,
-                    size: 48,
-                    color: Colors.grey.shade400,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Belum ada pengajuan',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey.shade600,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            )
-          else
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _applications.length,
-              itemBuilder: (context, index) {
-                final application = _applications[index];
-                return _buildApplicationCard(application);
-              },
-            ),
+          _applications.isEmpty
+              ? _buildEmptyApplications()
+              : _buildApplicationsList(),
         ],
       ),
     );
   }
+  
+  /// Membangun tampilan ketika tidak ada pengajuan
+  Widget _buildEmptyApplications() {
+    return Container(
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(_mediumBorderRadius),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            Icons.assignment_outlined,
+            size: _mediumIconSize,
+            color: Colors.grey.shade400,
+          ),
+          const SizedBox(height: _smallSpacing),
+          Text(
+            'Belum ada pengajuan',
+            style: TextStyle(
+              fontSize: _bodyTextSize,
+              color: Colors.grey.shade600,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  /// Membangun daftar pengajuan
+  Widget _buildApplicationsList() {
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: _applications.length,
+      itemBuilder: (context, index) {
+        final application = _applications[index];
+        return _buildApplicationCard(application);
+      },
+    );
+  }
 
+  /// Membangun kartu detail (deskripsi, syarat, panduan)
   Widget _buildDetailCard(String title, IconData icon, String content, MaterialColor color) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(_mediumSpacing),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(_mediumBorderRadius),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withAlpha(13),  // 0.05 * 255 = 13
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -722,29 +878,29 @@ class _AdminProgramDetailPageState extends State<AdminProgramDetailPage>
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(_microSpacing),
                 decoration: BoxDecoration(
                   color: color.shade100,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(_microBorderRadius),
                 ),
-                child: Icon(icon, color: color.shade600, size: 20),
+                child: Icon(icon, color: color.shade600, size: _smallIconSize),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: _smallSpacing),
               Text(
                 title,
                 style: const TextStyle(
-                  fontSize: 16,
+                  fontSize: _bodyTextSize,
                   fontWeight: FontWeight.bold,
                   color: Colors.black87,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: _spacing),
           Text(
             content,
             style: const TextStyle(
-              fontSize: 14,
+              fontSize: _captionTextSize,
               color: Colors.black87,
               height: 1.6,
             ),
@@ -754,31 +910,21 @@ class _AdminProgramDetailPageState extends State<AdminProgramDetailPage>
     );
   }
 
+  /// Membangun kartu pengajuan
   Widget _buildApplicationCard(Map<String, dynamic> application) {
-    Color statusColor = Colors.orange;
-    IconData statusIcon = Icons.pending_rounded;
+    final status = application['status']?.toLowerCase() ?? '';
+    final statusInfo = _getStatusInfo(status);
     
-    switch (application['status'].toLowerCase()) {
-      case 'approved':
-        statusColor = Colors.green;
-        statusIcon = Icons.check_circle_rounded;
-        break;
-      case 'rejected':
-        statusColor = Colors.red;
-        statusIcon = Icons.cancel_rounded;
-        break;
-    }
-
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: _smallSpacing),
+      padding: const EdgeInsets.all(_spacing),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: statusColor.withOpacity(0.3)),
+        borderRadius: BorderRadius.circular(_smallBorderRadius),
+        border: Border.all(color: statusInfo.color.withAlpha(77)),  // 0.3 * 255 = 77
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withAlpha(13),  // 0.05 * 255 = 13
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -793,49 +939,57 @@ class _AdminProgramDetailPageState extends State<AdminProgramDetailPage>
                 child: Text(
                   application['userName'] ?? 'Nama tidak tersedia',
                   style: const TextStyle(
-                    fontSize: 16,
+                    fontSize: _bodyTextSize,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: statusColor,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(statusIcon, size: 14, color: Colors.white),
-                    const SizedBox(width: 4),
-                    Text(
-                      application['status'].toUpperCase(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              _buildApplicationStatusBadge(status, statusInfo),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: _microSpacing),
           Text(
             application['userEmail'] ?? '',
             style: TextStyle(
               color: Colors.grey.shade600,
-              fontSize: 14,
+              fontSize: _captionTextSize,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: _microSpacing),
           Text(
             'Diajukan: ${_formatDate(application['submittedAt'])}',
             style: TextStyle(
               color: Colors.grey.shade500,
-              fontSize: 12,
+              fontSize: _smallTextSize,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  /// Membangun badge status pengajuan
+  Widget _buildApplicationStatusBadge(String status, StatusInfo statusInfo) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: _microSpacing,
+        vertical: _miniSpacing,
+      ),
+      decoration: BoxDecoration(
+        color: statusInfo.color,
+        borderRadius: BorderRadius.circular(_smallSpacing),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(statusInfo.icon, size: _tinyIconSize, color: Colors.white),
+          const SizedBox(width: _miniSpacing),
+          Text(
+            status.toUpperCase(),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: _tinyTextSize,
+              fontWeight: FontWeight.bold,
             ),
           ),
         ],
@@ -843,15 +997,16 @@ class _AdminProgramDetailPageState extends State<AdminProgramDetailPage>
     );
   }
 
+  /// Membangun baris info (label dan nilai)
   Widget _buildInfoRow(IconData icon, String label, String value) {
     return Row(
       children: [
-        Icon(icon, size: 16, color: Colors.grey.shade600),
-        const SizedBox(width: 8),
+        Icon(icon, size: _microIconSize, color: Colors.grey.shade600),
+        const SizedBox(width: _microSpacing),
         Text(
           '$label: ',
           style: TextStyle(
-            fontSize: 14,
+            fontSize: _captionTextSize,
             fontWeight: FontWeight.w500,
             color: Colors.grey.shade700,
           ),
@@ -860,7 +1015,7 @@ class _AdminProgramDetailPageState extends State<AdminProgramDetailPage>
           child: Text(
             value,
             style: const TextStyle(
-              fontSize: 14,
+              fontSize: _captionTextSize,
               color: Colors.black87,
             ),
           ),

@@ -1,3 +1,6 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+/// Model untuk statistik dashboard
 class DashboardStatistics {
   final int totalUsers;
   final int activePrograms;
@@ -22,6 +25,7 @@ class DashboardStatistics {
   });
 }
 
+/// Model untuk aktivitas terbaru
 class RecentActivity {
   final String id;
   final String userName;
@@ -37,13 +41,16 @@ class RecentActivity {
     this.submissionDate,
   });
 
+  /// Membuat objek RecentActivity dari Map
   factory RecentActivity.fromMap(Map<String, dynamic> map) {
     return RecentActivity(
       id: map['id'] ?? '',
       userName: map['userName'] ?? 'Unknown User',
       programName: map['programName'] ?? 'Unknown Program',
       status: map['status'] ?? 'Unknown',
-      submissionDate: map['submissionDate']?.toDate(),
+      submissionDate: map['submissionDate'] != null 
+          ? (map['submissionDate'] as Timestamp).toDate() 
+          : null,
     );
   }
 }

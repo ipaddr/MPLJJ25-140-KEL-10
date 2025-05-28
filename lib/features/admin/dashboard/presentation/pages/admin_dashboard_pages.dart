@@ -5,8 +5,10 @@ import 'package:socio_care/features/admin/dashboard/presentation/widgets/recent_
 import 'package:socio_care/features/admin/dashboard/presentation/widgets/statistics_chart_widget.dart';
 import '../../data/admin_dashboard_service.dart';
 import '../../data/models/dashboard_statistics.dart';
-import 'dart:developer' as developer;
 
+/// Halaman dashboard untuk administrator
+///
+/// Menampilkan statistik sistem, aktivitas terbaru, dan analisis data
 class AdminDashboardPage extends StatefulWidget {
   const AdminDashboardPage({super.key});
 
@@ -16,37 +18,59 @@ class AdminDashboardPage extends StatefulWidget {
 
 class _AdminDashboardPageState extends State<AdminDashboardPage>
     with TickerProviderStateMixin {
+  // Keys & Services
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final AdminDashboardService _dashboardService = AdminDashboardService();
 
+  // State variables
   DashboardStatistics? _statistics;
   bool _isLoading = true;
   String? _errorMessage;
+
+  // Animation controllers
   late AnimationController _fadeController;
   late AnimationController _slideController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
 
+  // UI Constants
+  static const double _sectionSpacing = 24.0;
+  static const double _itemSpacing = 16.0;
+  static const double _smallSpacing = 12.0;
+  static const double _microSpacing = 8.0;
+  static const double _tinySpacing = 4.0;
+  static const double _contentHeight = 320.0;
+  static const double _borderRadius = 20.0;
+  static const double _smallBorderRadius = 16.0;
+  static const double _microBorderRadius = 12.0;
+
   @override
   void initState() {
     super.initState();
+    _initializeAnimations();
+    _loadDashboardData();
+  }
+
+  /// Inisialisasi animasi untuk dashboard
+  void _initializeAnimations() {
     _fadeController = AnimationController(
       duration: const Duration(milliseconds: 1000),
       vsync: this,
     );
+
     _slideController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
     );
+
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
     );
+
     _slideAnimation = Tween<Offset>(
       begin: const Offset(0, 0.3),
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _slideController, curve: Curves.easeOut));
-
-    _loadDashboardData();
   }
 
   @override
@@ -56,48 +80,29 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
     super.dispose();
   }
 
+  /// Memuat data dashboard dari service
   Future<void> _loadDashboardData() async {
+    if (!mounted) return;
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
     try {
-      final results = await Future.wait([
-        _dashboardService.getTotalUsersCount(),
-        _dashboardService.getActiveProgramsCount(),
-        _dashboardService.getTotalApplicationsCount(),
-        _dashboardService.getApprovedApplicationsCount(),
-        _dashboardService.getRejectedApplicationsCount(),
-        _dashboardService.getPendingApplicationsCount(),
-        _dashboardService.getUsersByVerificationStatus(),
-        _dashboardService.getApplicationsByStatus(),
-        _dashboardService.getRecentActivities(),
-      ]);
+      _statistics = await _dashboardService.getDashboardStatistics();
 
-      final recentActivitiesData = results[8] as List<Map<String, dynamic>>;
-      final recentActivities =
-          recentActivitiesData
-              .map((data) => RecentActivity.fromMap(data))
-              .toList();
-
-      _statistics = DashboardStatistics(
-        totalUsers: results[0] as int,
-        activePrograms: results[1] as int,
-        totalApplications: results[2] as int,
-        approvedApplications: results[3] as int,
-        rejectedApplications: results[4] as int,
-        pendingApplications: results[5] as int,
-        usersByStatus: results[6] as Map<String, int>,
-        applicationsByStatus: results[7] as Map<String, int>,
-        recentActivities: recentActivities,
-      );
-
-      _fadeController.forward();
-      _slideController.forward();
+      if (mounted) {
+        _fadeController.forward();
+        _slideController.forward();
+      }
     } catch (e) {
-      _errorMessage = 'Gagal memuat data dashboard: ${e.toString()}';
-      developer.log('Error loading dashboard data: $e');
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Gagal memuat data dashboard: ${e.toString()}';
+        });
+        debugPrint('Error loading dashboard data: $e');
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -107,6 +112,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
     }
   }
 
+  /// Menyegarkan data dashboard
   Future<void> _refreshData() async {
     _fadeController.reset();
     _slideController.reset();
@@ -121,150 +127,165 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
 
     return Scaffold(
       key: _scaffoldKey,
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Colors.blue.shade900,
-              Colors.blue.shade700,
-              Colors.blue.shade500,
-            ],
-            stops: const [0.0, 0.5, 1.0],
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              _buildCustomAppBar(),
-              Expanded(
-                child: RefreshIndicator(
-                  onRefresh: _refreshData,
-                  color: Colors.white,
-                  backgroundColor: Colors.blue.shade700,
-                  child:
-                      _isLoading
-                          ? _buildLoadingWidget()
-                          : _errorMessage != null
-                          ? _buildErrorWidget()
-                          : _buildDashboardContent(
-                            isLargeScreen,
-                            isMediumScreen,
-                          ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+      body: _buildBody(isLargeScreen, isMediumScreen),
       drawer: const AdminNavigationDrawer(),
     );
   }
 
+  /// Membangun body halaman utama
+  Widget _buildBody(bool isLargeScreen, bool isMediumScreen) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.blue.shade900,
+            Colors.blue.shade700,
+            Colors.blue.shade500,
+          ],
+          stops: const [0.0, 0.5, 1.0],
+        ),
+      ),
+      child: SafeArea(
+        child: Column(
+          children: [
+            _buildCustomAppBar(),
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: _refreshData,
+                color: Colors.white,
+                backgroundColor: Colors.blue.shade700,
+                child: _buildMainContent(isLargeScreen, isMediumScreen),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Membangun konten utama berdasarkan state
+  Widget _buildMainContent(bool isLargeScreen, bool isMediumScreen) {
+    if (_isLoading) {
+      return _buildLoadingWidget();
+    }
+
+    if (_errorMessage != null) {
+      return _buildErrorWidget();
+    }
+
+    return _buildDashboardContent(isLargeScreen, isMediumScreen);
+  }
+
+  /// Membangun app bar kustom
   Widget _buildCustomAppBar() {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
       child: Row(
         children: [
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: IconButton(
-              icon: const Icon(
-                Icons.menu_rounded,
-                color: Colors.white,
-                size: 24,
-              ),
-              onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Dashboard Admin',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  'SocioCare Management System',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.8),
-                    fontSize: 13,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: IconButton(
-              icon: AnimatedRotation(
-                turns: _isLoading ? 1 : 0,
-                duration: const Duration(milliseconds: 1000),
-                child: const Icon(
-                  Icons.refresh_rounded,
-                  color: Colors.white,
-                  size: 24,
-                ),
-              ),
-              onPressed: _isLoading ? null : _refreshData,
-            ),
-          ),
+          _buildMenuButton(),
+          const SizedBox(width: _itemSpacing),
+          Expanded(child: _buildAppBarTitle()),
+          _buildRefreshButton(),
         ],
       ),
     );
   }
 
+  /// Membangun tombol menu
+  Widget _buildMenuButton() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(_microBorderRadius),
+      ),
+      child: IconButton(
+        icon: const Icon(Icons.menu_rounded, color: Colors.white, size: 24),
+        onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+      ),
+    );
+  }
+
+  /// Membangun judul app bar
+  Widget _buildAppBarTitle() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Dashboard Admin',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Text(
+          'SocioCare Management System',
+          style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 13),
+        ),
+      ],
+    );
+  }
+
+  /// Membangun tombol refresh
+  Widget _buildRefreshButton() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(_microBorderRadius),
+      ),
+      child: IconButton(
+        icon: AnimatedRotation(
+          turns: _isLoading ? 1 : 0,
+          duration: const Duration(milliseconds: 1000),
+          child: const Icon(
+            Icons.refresh_rounded,
+            color: Colors.white,
+            size: 24,
+          ),
+        ),
+        onPressed: _isLoading ? null : _refreshData,
+      ),
+    );
+  }
+
+  /// Membangun widget loading
   Widget _buildLoadingWidget() {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(_smallBorderRadius),
+        ),
+        child: const Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 50,
+              height: 50,
+              child: CircularProgressIndicator(
+                color: Colors.white,
+                strokeWidth: 3,
+              ),
             ),
-            child: const Column(
-              children: [
-                SizedBox(
-                  width: 50,
-                  height: 50,
-                  child: CircularProgressIndicator(
-                    color: Colors.white,
-                    strokeWidth: 3,
-                  ),
-                ),
-                SizedBox(height: 16),
-                Text(
-                  'Memuat data dashboard...',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
+            SizedBox(height: _itemSpacing),
+            Text(
+              'Memuat data dashboard...',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
+  /// Membangun widget error
   Widget _buildErrorWidget() {
     return Center(
       child: Padding(
@@ -272,26 +293,15 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
         child: Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+            color: Colors.white.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(_borderRadius),
+            border: Border.all(color: Colors.white.withOpacity(0.3)),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.red.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(50),
-                ),
-                child: const Icon(
-                  Icons.error_outline_rounded,
-                  size: 48,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 16),
+              _buildErrorIcon(),
+              const SizedBox(height: _itemSpacing),
               const Text(
                 'Terjadi Kesalahan',
                 style: TextStyle(
@@ -300,32 +310,17 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: _microSpacing),
               Text(
                 _errorMessage!,
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.8),
+                  color: Colors.white.withOpacity(0.8),
                   fontSize: 14,
                 ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 24),
-              ElevatedButton.icon(
-                onPressed: _refreshData,
-                icon: const Icon(Icons.refresh_rounded),
-                label: const Text('Coba Lagi'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: Colors.blue.shade700,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 12,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
+              const SizedBox(height: _sectionSpacing),
+              _buildRetryButton(),
             ],
           ),
         ),
@@ -333,6 +328,40 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
     );
   }
 
+  /// Membangun ikon error
+  Widget _buildErrorIcon() {
+    return Container(
+      padding: const EdgeInsets.all(_itemSpacing),
+      decoration: BoxDecoration(
+        color: Colors.red.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(50),
+      ),
+      child: const Icon(
+        Icons.error_outline_rounded,
+        size: 48,
+        color: Colors.white,
+      ),
+    );
+  }
+
+  /// Membangun tombol coba lagi
+  Widget _buildRetryButton() {
+    return ElevatedButton.icon(
+      onPressed: _refreshData,
+      icon: const Icon(Icons.refresh_rounded),
+      label: const Text('Coba Lagi'),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.blue.shade700,
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(_microBorderRadius),
+        ),
+      ),
+    );
+  }
+
+  /// Membangun konten dashboard
   Widget _buildDashboardContent(bool isLargeScreen, bool isMediumScreen) {
     return FadeTransition(
       opacity: _fadeAnimation,
@@ -348,9 +377,8 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
                 _buildWelcomeSection(),
                 const SizedBox(height: 20),
                 _buildStatsSection(),
-                const SizedBox(height: 24),
+                const SizedBox(height: _sectionSpacing),
                 _buildContentSections(isLargeScreen, isMediumScreen),
-                // ✅ REDUCED: Hanya 20px padding bottom yang diperlukan
                 const SizedBox(height: 20),
               ],
             ),
@@ -360,180 +388,161 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
     );
   }
 
+  /// Membangun bagian konten utama dashboard
   Widget _buildContentSections(bool isLargeScreen, bool isMediumScreen) {
-    // ✅ OPTIMIZED: Ukuran content yang proporsional
-    const double contentHeight = 320.0;
-
     if (isMediumScreen) {
+      // Layout untuk layar medium dan besar
       return Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            flex: 3,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Aktivitas Terbaru',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  height: contentHeight,
-                  child: RecentActivitiesWidget(
-                    activities: _statistics!.recentActivities,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          Expanded(flex: 3, child: _buildRecentActivitiesSection()),
           const SizedBox(width: 20),
-          Expanded(
-            flex: 2,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Analisis Data',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  height: contentHeight,
-                  child: StatisticsChartWidget(
-                    applicationsByStatus: _statistics!.applicationsByStatus,
-                    usersByStatus: _statistics!.usersByStatus,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          Expanded(flex: 2, child: _buildAnalyticsSection()),
         ],
       );
     } else {
+      // Layout untuk layar kecil (mobile)
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Aktivitas Terbaru',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: contentHeight,
-            child: RecentActivitiesWidget(
-              activities: _statistics!.recentActivities,
-            ),
-          ),
-          const SizedBox(height: 24),
-          const Text(
-            'Analisis Data',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: contentHeight,
-            child: StatisticsChartWidget(
-              applicationsByStatus: _statistics!.applicationsByStatus,
-              usersByStatus: _statistics!.usersByStatus,
-            ),
-          ),
+          _buildRecentActivitiesSection(),
+          const SizedBox(height: _sectionSpacing),
+          _buildAnalyticsSection(),
         ],
       );
     }
   }
 
-  Widget _buildWelcomeSection() {
-    final now = DateTime.now();
-    final hour = now.hour;
-    String greeting;
-    if (hour < 12) {
-      greeting = '🌅 Selamat Pagi';
-    } else if (hour < 17) {
-      greeting = '☀️ Selamat Siang';
-    } else {
-      greeting = '🌙 Selamat Malam';
-    }
+  /// Membangun seksi aktivitas terbaru
+  Widget _buildRecentActivitiesSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Aktivitas Terbaru',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: _smallSpacing),
+        SizedBox(
+          height: _contentHeight,
+          child: RecentActivitiesWidget(
+            activities: _statistics!.recentActivities,
+          ),
+        ),
+      ],
+    );
+  }
 
+  /// Membangun seksi analitik data
+  Widget _buildAnalyticsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Analisis Data',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: _smallSpacing),
+        SizedBox(
+          height: _contentHeight,
+          child: StatisticsChartWidget(
+            applicationsByStatus: _statistics!.applicationsByStatus,
+            usersByStatus: _statistics!.usersByStatus,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Membangun bagian selamat datang
+  Widget _buildWelcomeSection() {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            Colors.white.withValues(alpha: 0.2),
-            Colors.white.withValues(alpha: 0.1),
+            Colors.white.withOpacity(0.2),
+            Colors.white.withOpacity(0.1),
           ],
         ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+        borderRadius: BorderRadius.circular(_borderRadius),
+        border: Border.all(color: Colors.white.withOpacity(0.3)),
       ),
       child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  greeting,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.9),
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  'Administrator',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Kelola sistem bantuan sosial dengan mudah',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.8),
-                    fontSize: 13,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: const Icon(
-              Icons.admin_panel_settings_rounded,
-              size: 36,
-              color: Colors.white,
-            ),
-          ),
-        ],
+        children: [Expanded(child: _buildWelcomeMessage()), _buildAdminIcon()],
       ),
     );
   }
 
+  /// Membangun pesan selamat datang
+  Widget _buildWelcomeMessage() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          _getGreetingByTime(),
+          style: TextStyle(
+            color: Colors.white.withOpacity(0.9),
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: _tinySpacing),
+        const Text(
+          'Administrator',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: _tinySpacing + 2),
+        Text(
+          'Kelola sistem bantuan sosial dengan mudah',
+          style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 13),
+        ),
+      ],
+    );
+  }
+
+  /// Membangun ikon admin
+  Widget _buildAdminIcon() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(_smallBorderRadius),
+      ),
+      child: const Icon(
+        Icons.admin_panel_settings_rounded,
+        size: 36,
+        color: Colors.white,
+      ),
+    );
+  }
+
+  /// Mendapatkan salam berdasarkan waktu
+  String _getGreetingByTime() {
+    final hour = DateTime.now().hour;
+
+    if (hour < 12) {
+      return '🌅 Selamat Pagi';
+    } else if (hour < 17) {
+      return '☀️ Selamat Siang';
+    } else {
+      return '🌙 Selamat Malam';
+    }
+  }
+
+  /// Membangun bagian statistik
   Widget _buildStatsSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -546,69 +555,74 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
             color: Colors.white,
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: _itemSpacing),
         SizedBox(
           height: 140,
           child: ListView(
             scrollDirection: Axis.horizontal,
-            children: [
-              AdminStatisticCardWidget(
-                title: 'Total Pengguna',
-                value: _statistics!.totalUsers.toString(),
-                icon: Icons.people_rounded,
-                color: Colors.orange.shade600,
-                trend: '+12%',
-                trendUp: true,
-              ),
-              const SizedBox(width: 16),
-              AdminStatisticCardWidget(
-                title: 'Program Aktif',
-                value: _statistics!.activePrograms.toString(),
-                icon: Icons.campaign_rounded,
-                color: Colors.green.shade600,
-                trend: '+5%',
-                trendUp: true,
-              ),
-              const SizedBox(width: 16),
-              AdminStatisticCardWidget(
-                title: 'Total Pengajuan',
-                value: _statistics!.totalApplications.toString(),
-                icon: Icons.assignment_rounded,
-                color: Colors.purple.shade600,
-                trend: '+18%',
-                trendUp: true,
-              ),
-              const SizedBox(width: 16),
-              AdminStatisticCardWidget(
-                title: 'Disetujui',
-                value: _statistics!.approvedApplications.toString(),
-                icon: Icons.check_circle_rounded,
-                color: Colors.teal.shade600,
-                trend: '+8%',
-                trendUp: true,
-              ),
-              const SizedBox(width: 16),
-              AdminStatisticCardWidget(
-                title: 'Ditolak',
-                value: _statistics!.rejectedApplications.toString(),
-                icon: Icons.cancel_rounded,
-                color: Colors.red.shade600,
-                trend: '-3%',
-                trendUp: false,
-              ),
-              const SizedBox(width: 16),
-              AdminStatisticCardWidget(
-                title: 'Pending',
-                value: _statistics!.pendingApplications.toString(),
-                icon: Icons.schedule_rounded,
-                color: Colors.amber.shade600,
-                trend: '+15%',
-                trendUp: true,
-              ),
-            ],
+            children: _buildStatCards(),
           ),
         ),
       ],
     );
+  }
+
+  /// Membangun kartu-kartu statistik
+  List<Widget> _buildStatCards() {
+    return [
+      AdminStatisticCardWidget(
+        title: 'Total Pengguna',
+        value: _statistics!.totalUsers.toString(),
+        icon: Icons.people_rounded,
+        color: Colors.orange.shade600,
+        trend: '+12%',
+        trendUp: true,
+      ),
+      const SizedBox(width: _itemSpacing),
+      AdminStatisticCardWidget(
+        title: 'Program Aktif',
+        value: _statistics!.activePrograms.toString(),
+        icon: Icons.campaign_rounded,
+        color: Colors.green.shade600,
+        trend: '+5%',
+        trendUp: true,
+      ),
+      const SizedBox(width: _itemSpacing),
+      AdminStatisticCardWidget(
+        title: 'Total Pengajuan',
+        value: _statistics!.totalApplications.toString(),
+        icon: Icons.assignment_rounded,
+        color: Colors.purple.shade600,
+        trend: '+18%',
+        trendUp: true,
+      ),
+      const SizedBox(width: _itemSpacing),
+      AdminStatisticCardWidget(
+        title: 'Disetujui',
+        value: _statistics!.approvedApplications.toString(),
+        icon: Icons.check_circle_rounded,
+        color: Colors.teal.shade600,
+        trend: '+8%',
+        trendUp: true,
+      ),
+      const SizedBox(width: _itemSpacing),
+      AdminStatisticCardWidget(
+        title: 'Ditolak',
+        value: _statistics!.rejectedApplications.toString(),
+        icon: Icons.cancel_rounded,
+        color: Colors.red.shade600,
+        trend: '-3%',
+        trendUp: false,
+      ),
+      const SizedBox(width: _itemSpacing),
+      AdminStatisticCardWidget(
+        title: 'Pending',
+        value: _statistics!.pendingApplications.toString(),
+        icon: Icons.schedule_rounded,
+        color: Colors.amber.shade600,
+        trend: '+15%',
+        trendUp: true,
+      ),
+    ];
   }
 }

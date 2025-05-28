@@ -4,6 +4,7 @@ import 'package:socio_care/core/navigation/route_names.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+/// Halaman lupa kata sandi admin
 class AdminForgotPasswordPage extends StatefulWidget {
   const AdminForgotPasswordPage({super.key});
 
@@ -17,8 +18,14 @@ class _AdminForgotPasswordPageState extends State<AdminForgotPasswordPage> {
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
   String? _adminId;
-  String? _phoneNumber;
 
+  @override
+  void dispose() {
+    _emailController.dispose();
+    super.dispose();
+  }
+
+  /// Proses permintaan reset kata sandi
   Future<void> _requestPasswordReset() async {
     if (_formKey.currentState!.validate()) {
       setState(() {
@@ -26,135 +33,14 @@ class _AdminForgotPasswordPageState extends State<AdminForgotPasswordPage> {
       });
 
       try {
-        // 1. Find admin by email in Firestore
-        final adminQuerySnapshot =
-            await FirebaseFirestore.instance
-                .collection('admins')
-                .where('email', isEqualTo: _emailController.text.trim())
-                .limit(1)
-                .get();
-
-        if (adminQuerySnapshot.docs.isEmpty) {
-          throw FirebaseAuthException(
-            code: 'user-not-found',
-            message: 'No admin account found with that email.',
-          );
-        }
-
-        // 2. Get admin data including phone number
-        final adminDoc = adminQuerySnapshot.docs.first;
-        _adminId = adminDoc.id;
-        _phoneNumber = adminDoc.data()['phoneNumber'];
-
-        if (_phoneNumber == null || _phoneNumber!.isEmpty) {
-          throw Exception('Admin account does not have a phone number.');
-        }
-
-        // Format phone number to ensure it has international format
-        if (!_phoneNumber!.startsWith('+')) {
-          // If it starts with 0, replace with +62 (for Indonesia)
-          if (_phoneNumber!.startsWith('0')) {
-            _phoneNumber = '+62${_phoneNumber!.substring(1)}';
-          } else {
-            // Otherwise, just add +62
-            _phoneNumber = '+62$_phoneNumber';
-          }
-        }
-
-        // 3. Send SMS OTP using Firebase Phone Auth
-        await FirebaseAuth.instance.verifyPhoneNumber(
-          phoneNumber: _phoneNumber!,
-          verificationCompleted: (PhoneAuthCredential credential) {
-            // This won't be triggered for password reset - it's for Android auto-verification
-          },
-          verificationFailed: (FirebaseAuthException e) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Row(
-                  children: [
-                    const Icon(Icons.error_outline, color: Colors.white),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text('Verifikasi gagal: ${e.message}')),
-                  ],
-                ),
-                backgroundColor: Colors.red.shade600,
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-            );
-          },
-          codeSent: (String verificationId, int? resendToken) {
-            // Navigate to OTP input screen with necessary data
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Row(
-                    children: [
-                      Icon(Icons.check_circle, color: Colors.white),
-                      SizedBox(width: 8),
-                      Text('Kode OTP telah dikirim ke nomor telepon Anda'),
-                    ],
-                  ),
-                  backgroundColor: Colors.green.shade600,
-                  behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-              );
-
-              context.go(
-                RouteNames.adminOtp,
-                extra: {
-                  'email': _emailController.text.trim(),
-                  'verificationId': verificationId,
-                  'adminId': _adminId,
-                  'phoneNumber': _phoneNumber,
-                },
-              );
-            }
-          },
-          codeAutoRetrievalTimeout: (String verificationId) {
-            // Auto-retrieval timed out
-          },
-          timeout: const Duration(seconds: 60),
-        );
+        final email = _emailController.text.trim();
+        await _verifyAdminEmail(email);
+        await _sendPasswordResetEmail(email);
+        _showSuccessMessage();
       } on FirebaseAuthException catch (e) {
-        String errorMessage = 'Terjadi kesalahan saat mengirim kode OTP.';
-
-        if (e.code == 'user-not-found') {
-          errorMessage = 'Email tidak terdaftar.';
-        } else if (e.code == 'invalid-email') {
-          errorMessage = 'Format email tidak valid.';
-        }
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.error_outline, color: Colors.white),
-                const SizedBox(width: 8),
-                Expanded(child: Text(errorMessage)),
-              ],
-            ),
-            backgroundColor: Colors.red.shade600,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          ),
-        );
+        _handleAuthError(e);
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.error_outline, color: Colors.white),
-                const SizedBox(width: 8),
-                Expanded(child: Text('Error: ${e.toString()}')),
-              ],
-            ),
-            backgroundColor: Colors.red.shade600,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          ),
-        );
+        _showErrorMessage('Error: ${e.toString()}');
       } finally {
         if (mounted) {
           setState(() {
@@ -165,33 +51,116 @@ class _AdminForgotPasswordPageState extends State<AdminForgotPasswordPage> {
     }
   }
 
-  @override
-  void dispose() {
-    _emailController.dispose();
-    super.dispose();
+  /// Verifikasi email admin
+  Future<void> _verifyAdminEmail(String email) async {
+    final adminQuerySnapshot =
+        await FirebaseFirestore.instance
+            .collection('admins')
+            .where('email', isEqualTo: email)
+            .limit(1)
+            .get();
+
+    if (adminQuerySnapshot.docs.isEmpty) {
+      throw FirebaseAuthException(
+        code: 'user-not-found',
+        message: 'No admin account found with that email.',
+      );
+    }
+
+    // Get admin data
+    final adminDoc = adminQuerySnapshot.docs.first;
+    _adminId = adminDoc.id;
+  }
+
+  /// Mengirim email reset kata sandi
+  Future<void> _sendPasswordResetEmail(String email) async {
+    await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+  }
+
+  /// Menampilkan pesan sukses
+  void _showSuccessMessage() {
+    if (!mounted) return;
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.white),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Link reset kata sandi telah dikirim ke email Anda. Silakan periksa kotak masuk Anda.',
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.green.shade600,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+        duration: const Duration(seconds: 5),
+      ),
+    );
+
+    // Return to login page after showing success message
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) {
+        context.go(RouteNames.adminLogin);
+      }
+    });
+  }
+
+  /// Menangani error autentikasi Firebase
+  void _handleAuthError(FirebaseAuthException e) {
+    String errorMessage = 'Terjadi kesalahan saat mengirim link reset.';
+
+    if (e.code == 'user-not-found') {
+      errorMessage = 'Email tidak terdaftar sebagai admin.';
+    } else if (e.code == 'invalid-email') {
+      errorMessage = 'Format email tidak valid.';
+    }
+
+    _showErrorMessage(errorMessage);
+  }
+
+  /// Menampilkan pesan error
+  void _showErrorMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.white),
+            const SizedBox(width: 8),
+            Expanded(child: Text(message)),
+          ],
+        ),
+        backgroundColor: Colors.red.shade600,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    );
+  }
+
+  /// Validasi email
+  String? _validateEmail(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Email tidak boleh kosong';
+    }
+    if (!RegExp(
+      r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+    ).hasMatch(value)) {
+      return 'Format email tidak valid';
+    }
+    return null;
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Lupa Kata Sandi',
-          style: TextStyle(
-            fontFamily: 'Poppins',
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        backgroundColor: Colors.blue.shade700,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            context.go(RouteNames.adminLogin);
-          },
-        ),
-      ),
+      appBar: _buildAppBar(context),
       body: Container(
         width: double.infinity,
         height: double.infinity,
@@ -207,262 +176,297 @@ class _AdminForgotPasswordPageState extends State<AdminForgotPasswordPage> {
             padding: const EdgeInsets.all(16.0),
             child: Column(
               children: [
-                // Header Section
-                Container(
-                  padding: const EdgeInsets.all(24.0),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.9),
-                    borderRadius: BorderRadius.circular(16.0),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 10,
-                        offset: const Offset(0, 5),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      // Lock Icon
-                      Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: Colors.orange.shade100,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.lock_reset_rounded,
-                          size: 50,
-                          color: Colors.orange.shade700,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      
-                      // Title
-                      Text(
-                        'Reset Kata Sandi',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue.shade800,
-                          fontFamily: 'Poppins',
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 8),
-                      
-                      Text(
-                        'Masukkan email admin untuk menerima kode OTP reset kata sandi',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey.shade600,
-                          fontFamily: 'Poppins',
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
-                ),
+                _buildHeaderSection(),
                 const SizedBox(height: 24.0),
-                
-                // Form Section
-                Container(
-                  padding: const EdgeInsets.all(24.0),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.9),
-                    borderRadius: BorderRadius.circular(16.0),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 10,
-                        offset: const Offset(0, 5),
-                      ),
-                    ],
-                  ),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // Info Box
-                        Container(
-                          padding: const EdgeInsets.all(16.0),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.shade50,
-                            borderRadius: BorderRadius.circular(12.0),
-                            border: Border.all(
-                              color: Colors.blue.shade200,
-                              width: 1,
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.info_rounded,
-                                color: Colors.blue.shade600,
-                                size: 20,
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  'Kode OTP akan dikirim ke nomor telepon yang terdaftar dengan email admin ini.',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.blue.shade700,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-
-                        // Email Field
-                        TextFormField(
-                          controller: _emailController,
-                          decoration: InputDecoration(
-                            labelText: 'Email Admin',
-                            hintText: 'Masukkan email admin terdaftar',
-                            filled: true,
-                            fillColor: Colors.grey.shade50,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10.0),
-                              borderSide: BorderSide.none,
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10.0),
-                              borderSide: BorderSide(color: Colors.grey.shade300),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10.0),
-                              borderSide: BorderSide(
-                                color: Colors.blue.shade400,
-                                width: 2,
-                              ),
-                            ),
-                            prefixIcon: Icon(
-                              Icons.email_rounded,
-                              color: Colors.grey.shade600,
-                            ),
-                          ),
-                          keyboardType: TextInputType.emailAddress,
-                          enabled: !_isLoading,
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Email tidak boleh kosong';
-                            }
-                            if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
-                              return 'Format email tidak valid';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 24.0),
-
-                        // Send OTP Button
-                        Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12.0),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.blue.withOpacity(0.3),
-                                blurRadius: 8,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: ElevatedButton.icon(
-                            onPressed: _isLoading ? null : _requestPasswordReset,
-                            icon: _isLoading
-                                ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(Icons.send_rounded),
-                            label: Text(_isLoading ? 'Mengirim...' : 'Kirim Kode OTP'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF0066CC),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(
-                                vertical: 16.0,
-                                horizontal: 20.0,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12.0),
-                              ),
-                              textStyle: const TextStyle(
-                                fontFamily: 'Poppins',
-                                fontSize: 16.0,
-                                fontWeight: FontWeight.w600,
-                              ),
-                              elevation: 0,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+                _buildFormSection(),
                 const SizedBox(height: 24.0),
-                
-                // Back to Login Link
-                Container(
-                  padding: const EdgeInsets.all(16.0),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12.0),
-                    border: Border.all(
-                      color: Colors.blue.withOpacity(0.3),
-                      width: 1,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.arrow_back_rounded,
-                        color: Colors.blue.shade700,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Ingat kata sandi? ',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.blue.shade700,
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          context.go(RouteNames.adminLogin);
-                        },
-                        style: TextButton.styleFrom(
-                          padding: EdgeInsets.zero,
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        child: Text(
-                          'Login Sekarang',
-                          style: TextStyle(
-                            color: Colors.blue.shade800,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                _buildBackToLoginLink(context),
                 const SizedBox(height: 16.0),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  /// AppBar untuk halaman lupa kata sandi
+  PreferredSizeWidget _buildAppBar(BuildContext context) {
+    return AppBar(
+      title: const Text(
+        'Lupa Kata Sandi',
+        style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold),
+      ),
+      backgroundColor: Colors.blue.shade700,
+      foregroundColor: Colors.white,
+      elevation: 0,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back),
+        onPressed: () {
+          context.go(RouteNames.adminLogin);
+        },
+      ),
+    );
+  }
+
+  /// Widget bagian header halaman
+  Widget _buildHeaderSection() {
+    return Container(
+      padding: const EdgeInsets.all(24.0),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(16.0),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Lock Icon
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.orange.shade100,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.lock_reset_rounded,
+              size: 50,
+              color: Colors.orange.shade700,
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Title
+          Text(
+            'Reset Kata Sandi',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.blue.shade800,
+              fontFamily: 'Poppins',
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+
+          Text(
+            'Masukkan email admin untuk menerima tautan reset kata sandi',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey.shade600,
+              fontFamily: 'Poppins',
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Widget bagian form reset password
+  Widget _buildFormSection() {
+    return Container(
+      padding: const EdgeInsets.all(24.0),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(16.0),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildInfoBox(),
+            const SizedBox(height: 20),
+            _buildEmailField(),
+            const SizedBox(height: 24.0),
+            _buildResetButton(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Widget info box
+  Widget _buildInfoBox() {
+    return Container(
+      padding: const EdgeInsets.all(16.0),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(12.0),
+        border: Border.all(
+          color: Colors.blue.shade200,
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.info_rounded,
+            color: Colors.blue.shade600,
+            size: 20,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Tautan reset kata sandi akan dikirim ke email admin yang terdaftar.',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.blue.shade700,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Widget field email
+  Widget _buildEmailField() {
+    return TextFormField(
+      controller: _emailController,
+      decoration: InputDecoration(
+        labelText: 'Email Admin',
+        hintText: 'Masukkan email admin',
+        filled: true,
+        fillColor: Colors.grey.shade50,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10.0),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10.0),
+          borderSide: BorderSide(
+            color: Colors.grey.shade300,
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10.0),
+          borderSide: BorderSide(
+            color: Colors.blue.shade400,
+            width: 2,
+          ),
+        ),
+        prefixIcon: Icon(
+          Icons.email_rounded,
+          color: Colors.grey.shade600,
+        ),
+      ),
+      keyboardType: TextInputType.emailAddress,
+      enabled: !_isLoading,
+      validator: _validateEmail,
+    );
+  }
+
+  /// Widget tombol reset password
+  Widget _buildResetButton() {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12.0),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blue.withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ElevatedButton.icon(
+        onPressed: _isLoading ? null : _requestPasswordReset,
+        icon: _isLoading
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2,
+                ),
+              )
+            : const Icon(Icons.send_rounded),
+        label: Text(
+          _isLoading ? 'Mengirim...' : 'Kirim Tautan Reset',
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF0066CC),
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(
+            vertical: 16.0,
+            horizontal: 20.0,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12.0),
+          ),
+          textStyle: const TextStyle(
+            fontFamily: 'Poppins',
+            fontSize: 16.0,
+            fontWeight: FontWeight.w600,
+          ),
+          elevation: 0,
+        ),
+      ),
+    );
+  }
+
+  /// Widget link kembali ke login
+  Widget _buildBackToLoginLink(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16.0),
+      decoration: BoxDecoration(
+        color: Colors.blue.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12.0),
+        border: Border.all(
+          color: Colors.blue.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.arrow_back_rounded,
+            color: Colors.blue.shade700,
+            size: 20,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            'Ingat kata sandi? ',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.blue.shade700,
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              context.go(RouteNames.adminLogin);
+            },
+            style: TextButton.styleFrom(
+              padding: EdgeInsets.zero,
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: Text(
+              'Login Sekarang',
+              style: TextStyle(
+                color: Colors.blue.shade800,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

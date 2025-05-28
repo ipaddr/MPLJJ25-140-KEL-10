@@ -2,10 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:socio_care/core/navigation/route_names.dart';
 import 'package:socio_care/features/admin/core_admin/presentation/widgets/admin_navigation_drawer.dart';
+import '../../../auth/services/admin_auth_service.dart';
 import '../../data/admin_profile_service.dart';
 import '../../data/models/admin_profile_model.dart';
 import 'package:intl/intl.dart';
 
+/// Halaman untuk menampilkan profil administrator
+///
+/// Menampilkan informasi profil, statistik aktivitas, dan opsi
+/// manajemen akun seperti edit profile dan logout
 class AdminProfilePage extends StatefulWidget {
   const AdminProfilePage({super.key});
 
@@ -15,39 +20,82 @@ class AdminProfilePage extends StatefulWidget {
 
 class _AdminProfilePageState extends State<AdminProfilePage>
     with TickerProviderStateMixin {
+  // Keys & Services
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final AdminProfileService _profileService = AdminProfileService();
+  final AdminAuthService _authService = AdminAuthService();
 
+  // State variables
   AdminProfileModel? _adminProfile;
   Map<String, int> _statistics = {};
   bool _isLoading = true;
   String? _errorMessage;
 
+  // Animation controllers
   late AnimationController _fadeController;
   late AnimationController _slideController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
 
+  // UI Constants
+  static const double _spacing = 16.0;
+  static const double _largeSpacing = 20.0;
+  static const double _mediumSpacing = 16.0;
+  static const double _smallSpacing = 12.0;
+  static const double _microSpacing = 8.0;
+  static const double _tinySpacing = 6.0;
+  static const double _miniSpacing = 4.0;
+
+  static const double _borderRadius = 20.0;
+  static const double _mediumBorderRadius = 16.0;
+  static const double _smallBorderRadius = 12.0;
+  static const double _microBorderRadius = 8.0;
+
+  static const double _headingFontSize = 24.0;
+  static const double _subheadingFontSize = 22.0;
+  static const double _titleFontSize = 18.0;
+  static const double _bodyFontSize = 16.0;
+  static const double _smallFontSize = 14.0;
+  static const double _microFontSize = 12.0;
+
+  static const double _largeIconSize = 48.0;
+  static const double _iconSize = 24.0;
+  static const double _smallIconSize = 20.0;
+  static const double _microIconSize = 6.0;
+
+  static const double _avatarRadius = 45.0;
+  static const double _profilePicIconSize = 50.0;
+
+  static const Duration _fadeAnimationDuration = Duration(milliseconds: 800);
+  static const Duration _slideAnimationDuration = Duration(milliseconds: 600);
+
   @override
   void initState() {
     super.initState();
+    _initializeAnimations();
+    _loadProfileData();
+  }
+
+  /// Inisialisasi controller animasi
+  void _initializeAnimations() {
     _fadeController = AnimationController(
-      duration: const Duration(milliseconds: 800),
+      duration: _fadeAnimationDuration,
       vsync: this,
     );
+
     _slideController = AnimationController(
-      duration: const Duration(milliseconds: 600),
+      duration: _slideAnimationDuration,
       vsync: this,
     );
+
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
     );
+
     _slideAnimation = Tween<Offset>(
       begin: const Offset(0, 0.2),
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _slideController, curve: Curves.easeOut));
-
-    _loadProfileData();
   }
 
   @override
@@ -57,11 +105,18 @@ class _AdminProfilePageState extends State<AdminProfilePage>
     super.dispose();
   }
 
+  /// Memuat data profil administrator dan statistik
   Future<void> _loadProfileData() async {
+    if (!mounted) return;
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
+
+    // Reset animations before loading new data
+    _fadeController.reset();
+    _slideController.reset();
 
     try {
       final results = await Future.wait([
@@ -69,128 +124,157 @@ class _AdminProfilePageState extends State<AdminProfilePage>
         _profileService.getAdminStatistics(),
       ]);
 
-      setState(() {
-        _adminProfile = results[0] as AdminProfileModel?;
-        _statistics = results[1] as Map<String, int>;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _adminProfile = results[0] as AdminProfileModel?;
+          _statistics = results[1] as Map<String, int>;
+          _isLoading = false;
+        });
 
-      _fadeController.forward();
-      _slideController.forward();
+        _fadeController.forward();
+        _slideController.forward();
+      }
     } catch (e) {
-      setState(() {
-        _errorMessage = 'Gagal memuat data profil: ${e.toString()}';
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Gagal memuat data profil: ${e.toString()}';
+          _isLoading = false;
+        });
+        debugPrint('Error loading profile data: $e');
+      }
     }
   }
 
+  /// Proses logout dari aplikasi dengan konfirmasi
   Future<void> _logout() async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            icon: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.red.shade100,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.logout_rounded,
-                color: Colors.red.shade600,
-                size: 48,
-              ),
-            ),
-            title: const Text(
-              'Konfirmasi Logout',
-              style: TextStyle(fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-            ),
-            content: const Text(
-              'Apakah Anda yakin ingin keluar dari sistem?',
-              textAlign: TextAlign.center,
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: Text(
-                  'Batal',
-                  style: TextStyle(color: Colors.grey.shade600),
-                ),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red.shade600,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: const Text('Logout'),
-              ),
-            ],
-          ),
+      builder: (context) => _buildLogoutConfirmationDialog(),
     );
 
-    if (confirmed == true) {
+    if (confirmed == true && mounted) {
       try {
-        await _profileService.signOut();
+        // Show loading indicator
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2,
+                  ),
+                ),
+                SizedBox(width: 16),
+                Text('Logging out...'),
+              ],
+            ),
+            duration: Duration(seconds: 2),
+            backgroundColor: Colors.blue,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+
+        // Use AdminAuthService to properly clear all session data
+        await _authService.logout();
+
         if (mounted) {
-          _showSuccessSnackBar('Logout berhasil');
+          _showSnackBar(message: 'Logout berhasil', isError: false);
           context.go(RouteNames.adminLogin);
         }
       } catch (e) {
         if (mounted) {
-          _showErrorSnackBar('Error logout: ${e.toString()}');
+          _showSnackBar(
+            message: 'Error logout: ${e.toString()}',
+            isError: true,
+          );
+          debugPrint('Error during logout: $e');
         }
       }
     }
   }
 
-  void _showSuccessSnackBar(String message) {
+  /// Menampilkan dialog konfirmasi logout
+  Widget _buildLogoutConfirmationDialog() {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(_mediumBorderRadius),
+      ),
+      icon: Container(
+        padding: const EdgeInsets.all(_mediumSpacing),
+        decoration: BoxDecoration(
+          color: Colors.red.shade100,
+          shape: BoxShape.circle,
+        ),
+        child: Icon(
+          Icons.logout_rounded,
+          color: Colors.red.shade600,
+          size: _largeIconSize,
+        ),
+      ),
+      title: const Text(
+        'Konfirmasi Logout',
+        style: TextStyle(fontWeight: FontWeight.bold),
+        textAlign: TextAlign.center,
+      ),
+      content: const Text(
+        'Apakah Anda yakin ingin keluar dari sistem?',
+        textAlign: TextAlign.center,
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: Text('Batal', style: TextStyle(color: Colors.grey.shade600)),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.red.shade600,
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(_smallBorderRadius),
+            ),
+          ),
+          child: const Text('Logout'),
+        ),
+      ],
+    );
+  }
+
+  /// Menampilkan snackbar pesan informasi atau error
+  void _showSnackBar({required String message, required bool isError}) {
+    if (!mounted) return;
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
           children: [
-            const Icon(Icons.check_circle, color: Colors.white),
-            const SizedBox(width: 8),
+            Icon(
+              isError ? Icons.error_outline : Icons.check_circle,
+              color: Colors.white,
+            ),
+            const SizedBox(width: _microSpacing),
             Expanded(child: Text(message)),
           ],
         ),
-        backgroundColor: Colors.green.shade600,
+        backgroundColor: isError ? Colors.red.shade600 : Colors.green.shade600,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(_microBorderRadius),
+        ),
       ),
     );
   }
 
-  void _showErrorSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.error_outline, color: Colors.white),
-            const SizedBox(width: 8),
-            Expanded(child: Text(message)),
-          ],
-        ),
-        backgroundColor: Colors.red.shade600,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
-    );
-  }
-
+  /// Format tanggal dengan format yang lebih mudah dibaca
   String _formatDate(DateTime? date) {
     if (date == null) return 'N/A';
     return DateFormat('dd MMM yyyy, HH:mm').format(date);
   }
 
+  /// Mendapatkan warna sesuai status akun
   Color _getStatusColor(bool isActive) {
     return isActive ? Colors.green : Colors.orange;
   }
@@ -199,68 +283,71 @@ class _AdminProfilePageState extends State<AdminProfilePage>
   Widget build(BuildContext context) {
     return Scaffold(
       key: _scaffoldKey,
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Colors.blue.shade900,
-              Colors.blue.shade700,
-              Colors.blue.shade500,
-            ],
-            stops: const [0.0, 0.5, 1.0],
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              // Custom App Bar - SAMA SEPERTI AdminProgramListPage
-              _buildCustomAppBar(),
-
-              // Main Content
-              Expanded(
-                child:
-                    _isLoading
-                        ? _buildLoadingWidget()
-                        : _errorMessage != null
-                        ? _buildErrorWidget()
-                        : _buildProfileContent(),
-              ),
-            ],
-          ),
-        ),
-      ),
+      body: _buildBody(),
       drawer: const AdminNavigationDrawer(),
-      // FloatingActionButton untuk Edit Profile
       floatingActionButton: _buildFloatingActionButton(),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 
+  /// Membangun struktur utama body halaman
+  Widget _buildBody() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.blue.shade900,
+            Colors.blue.shade700,
+            Colors.blue.shade500,
+          ],
+          stops: const [0.0, 0.5, 1.0],
+        ),
+      ),
+      child: SafeArea(
+        child: Column(
+          children: [
+            // Custom App Bar
+            _buildCustomAppBar(),
+
+            // Main Content
+            Expanded(
+              child:
+                  _isLoading
+                      ? _buildLoadingWidget()
+                      : _errorMessage != null
+                      ? _buildErrorWidget()
+                      : _buildProfileContent(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Membangun app bar kustom
   Widget _buildCustomAppBar() {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(_largeSpacing),
       child: Row(
         children: [
           // Menu Button
           Container(
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(12),
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(_smallBorderRadius),
             ),
             child: IconButton(
               icon: const Icon(
                 Icons.menu_rounded,
                 color: Colors.white,
-                size: 24,
+                size: _iconSize,
               ),
-              onPressed: () {
-                _scaffoldKey.currentState?.openDrawer();
-              },
+              onPressed: () => _scaffoldKey.currentState?.openDrawer(),
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: _mediumSpacing),
 
           // Title Section
           Expanded(
@@ -271,15 +358,15 @@ class _AdminProfilePageState extends State<AdminProfilePage>
                   'Profil Admin',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 24,
+                    fontSize: _headingFontSize,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 Text(
                   'Kelola informasi akun admin',
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.8),
-                    fontSize: 14,
+                    color: Colors.white.withOpacity(0.8),
+                    fontSize: _smallFontSize,
                   ),
                 ),
               ],
@@ -289,8 +376,8 @@ class _AdminProfilePageState extends State<AdminProfilePage>
           // Refresh Button
           Container(
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(12),
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(_smallBorderRadius),
             ),
             child: IconButton(
               icon: AnimatedRotation(
@@ -299,10 +386,11 @@ class _AdminProfilePageState extends State<AdminProfilePage>
                 child: const Icon(
                   Icons.refresh_rounded,
                   color: Colors.white,
-                  size: 24,
+                  size: _iconSize,
                 ),
               ),
               onPressed: _isLoading ? null : _loadProfileData,
+              tooltip: 'Segarkan Data',
             ),
           ),
         ],
@@ -310,24 +398,25 @@ class _AdminProfilePageState extends State<AdminProfilePage>
     );
   }
 
+  /// Membangun tampilan loading
   Widget _buildLoadingWidget() {
     return Center(
       child: Container(
         padding: const EdgeInsets.all(32),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(16),
+          color: Colors.white.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(_mediumBorderRadius),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const CircularProgressIndicator(color: Colors.white),
-            const SizedBox(height: 16),
+            const SizedBox(height: _mediumSpacing),
             Text(
               'Memuat data profil...',
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.9),
-                fontSize: 16,
+                color: Colors.white.withOpacity(0.9),
+                fontSize: _bodyFontSize,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -337,50 +426,51 @@ class _AdminProfilePageState extends State<AdminProfilePage>
     );
   }
 
+  /// Membangun tampilan error
   Widget _buildErrorWidget() {
     return Center(
       child: Container(
-        margin: const EdgeInsets.all(24),
+        margin: const EdgeInsets.all(_largeSpacing),
         padding: const EdgeInsets.all(32),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+          color: Colors.white.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(_borderRadius),
+          border: Border.all(color: Colors.white.withOpacity(0.3)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(_mediumSpacing),
               decoration: BoxDecoration(
-                color: Colors.red.withValues(alpha: 0.2),
+                color: Colors.red.withOpacity(0.2),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
                 Icons.error_outline_rounded,
-                size: 48,
+                size: _largeIconSize,
                 color: Colors.white,
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: _mediumSpacing),
             const Text(
               'Terjadi Kesalahan',
               style: TextStyle(
                 color: Colors.white,
-                fontSize: 20,
+                fontSize: _titleFontSize + 2,
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: _microSpacing),
             Text(
               _errorMessage!,
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.8),
-                fontSize: 14,
+                color: Colors.white.withOpacity(0.8),
+                fontSize: _smallFontSize,
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: _largeSpacing),
             ElevatedButton.icon(
               onPressed: _loadProfileData,
               icon: const Icon(Icons.refresh_rounded),
@@ -389,7 +479,7 @@ class _AdminProfilePageState extends State<AdminProfilePage>
                 backgroundColor: Colors.white,
                 foregroundColor: Colors.blue.shade700,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(_smallBorderRadius),
                 ),
               ),
             ),
@@ -399,6 +489,7 @@ class _AdminProfilePageState extends State<AdminProfilePage>
     );
   }
 
+  /// Membangun konten utama profil
   Widget _buildProfileContent() {
     return FadeTransition(
       opacity: _fadeAnimation,
@@ -408,15 +499,15 @@ class _AdminProfilePageState extends State<AdminProfilePage>
           decoration: const BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(24),
-              topRight: Radius.circular(24),
+              topLeft: Radius.circular(_largeSpacing + 4),
+              topRight: Radius.circular(_largeSpacing + 4),
             ),
           ),
           child: RefreshIndicator(
             onRefresh: _loadProfileData,
             color: Colors.blue.shade700,
             child: SingleChildScrollView(
-              padding: const EdgeInsets.only(top: 20, bottom: 100),
+              padding: const EdgeInsets.only(top: _largeSpacing, bottom: 100),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -440,20 +531,21 @@ class _AdminProfilePageState extends State<AdminProfilePage>
     );
   }
 
+  /// Membangun header profil dengan foto dan info dasar
   Widget _buildProfileHeader() {
     return Container(
-      margin: const EdgeInsets.all(20),
-      padding: const EdgeInsets.all(24),
+      margin: const EdgeInsets.all(_largeSpacing),
+      padding: const EdgeInsets.all(_largeSpacing + 4),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [Colors.blue.shade600, Colors.blue.shade800],
         ),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(_borderRadius),
         boxShadow: [
           BoxShadow(
-            color: Colors.blue.withValues(alpha: 0.3),
+            color: Colors.blue.withOpacity(0.3),
             blurRadius: 15,
             offset: const Offset(0, 8),
           ),
@@ -462,102 +554,112 @@ class _AdminProfilePageState extends State<AdminProfilePage>
       child: Row(
         children: [
           // Profile Picture
-          Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 4),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.2),
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: CircleAvatar(
-              radius: 45,
-              backgroundColor: Colors.white,
-              backgroundImage:
-                  _adminProfile?.profilePictureUrl != null
-                      ? NetworkImage(_adminProfile!.profilePictureUrl!)
-                      : null,
-              child:
-                  _adminProfile?.profilePictureUrl == null
-                      ? Icon(
-                        Icons.person_rounded,
-                        size: 50,
-                        color: Colors.blue.shade700,
-                      )
-                      : null,
-            ),
-          ),
-          const SizedBox(width: 20),
+          _buildProfilePicture(),
+          const SizedBox(width: _largeSpacing),
 
           // Profile Info
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _adminProfile?.fullName ?? 'Admin',
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _adminProfile?.position ?? 'Administrator',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.white.withValues(alpha: 0.8),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _getStatusColor(
-                      _adminProfile?.isActive ?? true,
-                    ).withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: _getStatusColor(_adminProfile?.isActive ?? true),
-                      width: 1,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 6,
-                        height: 6,
-                        decoration: BoxDecoration(
-                          color: _getStatusColor(
-                            _adminProfile?.isActive ?? true,
-                          ),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        _adminProfile?.isActive == true
-                            ? 'Aktif'
-                            : 'Tidak Aktif',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+          _buildProfileInfo(),
+        ],
+      ),
+    );
+  }
+
+  /// Membangun tampilan foto profil
+  Widget _buildProfilePicture() {
+    return Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white, width: 4),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: CircleAvatar(
+        radius: _avatarRadius,
+        backgroundColor: Colors.white,
+        backgroundImage:
+            _adminProfile?.profilePictureUrl != null
+                ? NetworkImage(_adminProfile!.profilePictureUrl!)
+                : null,
+        child:
+            _adminProfile?.profilePictureUrl == null
+                ? Icon(
+                  Icons.person_rounded,
+                  size: _profilePicIconSize,
+                  color: Colors.blue.shade700,
+                )
+                : null,
+      ),
+    );
+  }
+
+  /// Membangun informasi profil di header
+  Widget _buildProfileInfo() {
+    final isActive = _adminProfile?.isActive ?? true;
+
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            _adminProfile?.fullName ?? 'Admin',
+            style: const TextStyle(
+              fontSize: _subheadingFontSize,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: _miniSpacing),
+          Text(
+            _adminProfile?.position ?? 'Administrator',
+            style: TextStyle(
+              fontSize: _bodyFontSize,
+              color: Colors.white.withOpacity(0.8),
+            ),
+          ),
+          const SizedBox(height: _smallSpacing),
+          _buildStatusBadge(isActive),
+        ],
+      ),
+    );
+  }
+
+  /// Membangun badge status akun
+  Widget _buildStatusBadge(bool isActive) {
+    final statusColor = _getStatusColor(isActive);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: _smallSpacing,
+        vertical: _tinySpacing,
+      ),
+      decoration: BoxDecoration(
+        color: statusColor.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(_mediumBorderRadius),
+        border: Border.all(color: statusColor, width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: _microIconSize,
+            height: _microIconSize,
+            decoration: BoxDecoration(
+              color: statusColor,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: _tinySpacing),
+          Text(
+            isActive ? 'Aktif' : 'Tidak Aktif',
+            style: const TextStyle(
+              fontSize: _microFontSize,
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
             ),
           ),
         ],
@@ -565,29 +667,35 @@ class _AdminProfilePageState extends State<AdminProfilePage>
     );
   }
 
+  /// Membangun bagian informasi admin
   Widget _buildAdminInformation() {
     return Container(
-      margin: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+      margin: const EdgeInsets.fromLTRB(
+        _largeSpacing,
+        0,
+        _largeSpacing,
+        _largeSpacing,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
             "Informasi Admin",
             style: TextStyle(
-              fontSize: 18,
+              fontSize: _titleFontSize,
               fontWeight: FontWeight.bold,
               color: Colors.black87,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: _smallSpacing),
           Container(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(_largeSpacing),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(_mediumBorderRadius),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
+                  color: Colors.black.withOpacity(0.05),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -617,7 +725,7 @@ class _AdminProfilePageState extends State<AdminProfilePage>
                 _buildInfoRow(
                   Icons.security_rounded,
                   'Role',
-                  _adminProfile?.role ?? 'N/A',
+                  _adminProfile?.getRoleDisplayName() ?? 'N/A',
                   Colors.orange,
                 ),
                 _buildInfoRow(
@@ -641,6 +749,7 @@ class _AdminProfilePageState extends State<AdminProfilePage>
     );
   }
 
+  /// Membangun baris informasi admin
   Widget _buildInfoRow(
     IconData icon,
     String label,
@@ -649,7 +758,7 @@ class _AdminProfilePageState extends State<AdminProfilePage>
     bool isLast = false,
   }) {
     return Container(
-      padding: EdgeInsets.only(bottom: isLast ? 0 : 16),
+      padding: EdgeInsets.only(bottom: isLast ? 0 : _mediumSpacing),
       decoration: BoxDecoration(
         border:
             isLast
@@ -662,14 +771,14 @@ class _AdminProfilePageState extends State<AdminProfilePage>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(_microSpacing),
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(_microBorderRadius),
             ),
-            child: Icon(icon, size: 20, color: color),
+            child: Icon(icon, size: _smallIconSize, color: color),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: _mediumSpacing),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -677,16 +786,16 @@ class _AdminProfilePageState extends State<AdminProfilePage>
                 Text(
                   label,
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: _smallFontSize,
                     fontWeight: FontWeight.w500,
                     color: Colors.grey.shade600,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: _miniSpacing),
                 Text(
                   value,
                   style: const TextStyle(
-                    fontSize: 16,
+                    fontSize: _bodyFontSize,
                     fontWeight: FontWeight.w600,
                     color: Colors.black87,
                   ),
@@ -699,22 +808,27 @@ class _AdminProfilePageState extends State<AdminProfilePage>
     );
   }
 
+  /// Membangun bagian statistik
   Widget _buildStatistics() {
     return Container(
-      margin: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+      margin: const EdgeInsets.fromLTRB(
+        _largeSpacing,
+        0,
+        _largeSpacing,
+        _largeSpacing,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
             "Statistik",
             style: TextStyle(
-              fontSize: 18,
+              fontSize: _titleFontSize,
               fontWeight: FontWeight.bold,
               color: Colors.black87,
             ),
           ),
-          const SizedBox(height: 12),
-          // ✅ Using Row layout like user dashboard
+          const SizedBox(height: _smallSpacing),
           Row(
             children: [
               Expanded(
@@ -725,7 +839,7 @@ class _AdminProfilePageState extends State<AdminProfilePage>
                   Colors.blue,
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: _smallSpacing),
               Expanded(
                 child: _buildStatCard(
                   'Program Dikelola',
@@ -736,7 +850,7 @@ class _AdminProfilePageState extends State<AdminProfilePage>
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: _smallSpacing),
           Row(
             children: [
               Expanded(
@@ -747,7 +861,7 @@ class _AdminProfilePageState extends State<AdminProfilePage>
                   Colors.orange,
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: _smallSpacing),
               Expanded(
                 child: _buildStatCard(
                   'Konten Dipublikasi',
@@ -763,6 +877,7 @@ class _AdminProfilePageState extends State<AdminProfilePage>
     );
   }
 
+  /// Membangun kartu statistik
   Widget _buildStatCard(
     String title,
     String value,
@@ -770,15 +885,15 @@ class _AdminProfilePageState extends State<AdminProfilePage>
     Color color,
   ) {
     return Container(
-      padding: const EdgeInsets.all(16.0), // ✅ Same as user dashboard
+      padding: const EdgeInsets.all(_mediumSpacing),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12.0), // ✅ Same as user dashboard
+        borderRadius: BorderRadius.circular(_smallBorderRadius),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1), // ✅ Same as user dashboard
-            blurRadius: 6, // ✅ Same as user dashboard
-            offset: const Offset(0, 3), // ✅ Same as user dashboard
+            color: Colors.grey.withOpacity(0.1),
+            blurRadius: 6,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
@@ -788,22 +903,22 @@ class _AdminProfilePageState extends State<AdminProfilePage>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(icon, color: color, size: 24), // ✅ Same as user dashboard
+              Icon(icon, color: color, size: _iconSize),
               Text(
                 value,
                 style: TextStyle(
-                  fontSize: 24, // ✅ Same as user dashboard
+                  fontSize: _headingFontSize,
                   fontWeight: FontWeight.bold,
                   color: color,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8), // ✅ Same as user dashboard
+          const SizedBox(height: _microSpacing),
           Text(
             title,
             style: TextStyle(
-              fontSize: 12, // ✅ Same as user dashboard
+              fontSize: _microFontSize,
               color: Colors.grey.shade600,
               fontWeight: FontWeight.w500,
             ),
@@ -813,36 +928,40 @@ class _AdminProfilePageState extends State<AdminProfilePage>
     );
   }
 
+  /// Membangun tombol aksi
   Widget _buildActionButtons() {
     return Container(
-      margin: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+      margin: const EdgeInsets.fromLTRB(
+        _largeSpacing,
+        0,
+        _largeSpacing,
+        _largeSpacing,
+      ),
       child: Column(
         children: [
           // Edit Profile Button
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: () {
-                context.push(RouteNames.adminEditProfile);
-              },
+              onPressed: () => context.push(RouteNames.adminEditProfile),
               icon: const Icon(Icons.edit_rounded),
               label: const Text("Ubah Data Profil"),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.blue.shade600,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
+                padding: const EdgeInsets.symmetric(vertical: _mediumSpacing),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(_smallBorderRadius),
                 ),
                 elevation: 2,
                 textStyle: const TextStyle(
-                  fontSize: 16,
+                  fontSize: _bodyFontSize,
                   fontWeight: FontWeight.bold,
                 ),
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: _smallSpacing),
 
           // Logout Button
           SizedBox(
@@ -855,13 +974,13 @@ class _AdminProfilePageState extends State<AdminProfilePage>
                 style: TextStyle(color: Colors.red.shade600),
               ),
               style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
+                padding: const EdgeInsets.symmetric(vertical: _mediumSpacing),
                 side: BorderSide(color: Colors.red.shade600, width: 2),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(_smallBorderRadius),
                 ),
                 textStyle: const TextStyle(
-                  fontSize: 16,
+                  fontSize: _bodyFontSize,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -872,37 +991,42 @@ class _AdminProfilePageState extends State<AdminProfilePage>
     );
   }
 
+  /// Membangun floating action button
   Widget _buildFloatingActionButton() {
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [Colors.blue.shade600, Colors.blue.shade800],
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(_mediumBorderRadius),
         boxShadow: [
           BoxShadow(
-            color: Colors.blue.withValues(alpha: 0.4),
+            color: Colors.blue.withOpacity(0.4),
             blurRadius: 12,
             offset: const Offset(0, 6),
           ),
         ],
       ),
       child: FloatingActionButton.extended(
-        onPressed: () {
-          context.push(RouteNames.adminEditProfile);
-        },
+        onPressed: () => context.push(RouteNames.adminEditProfile),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        icon: const Icon(Icons.edit_rounded, color: Colors.white, size: 24),
+        icon: const Icon(
+          Icons.edit_rounded,
+          color: Colors.white,
+          size: _iconSize,
+        ),
         label: const Text(
           'Edit Profil',
           style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
-            fontSize: 16,
+            fontSize: _bodyFontSize,
           ),
         ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(_mediumBorderRadius),
+        ),
       ),
     );
   }

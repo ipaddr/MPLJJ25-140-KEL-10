@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:socio_care/core/navigation/route_names.dart';
 
+/// Halaman untuk menampilkan status pengajuan pengguna
 class UserApplicationsPage extends StatefulWidget {
   const UserApplicationsPage({super.key});
 
@@ -13,22 +14,37 @@ class UserApplicationsPage extends StatefulWidget {
 
 class _UserApplicationsPageState extends State<UserApplicationsPage>
     with SingleTickerProviderStateMixin {
+  // State variables
   User? _currentUser;
   bool _isLoading = true;
   String? _errorMessage;
-
-  // ✅ Simplified stream without fallback complexity
   Stream<QuerySnapshot>? _applicationsStream;
 
-  // ✅ Tab controller for filtering
+  // Tab controller for filtering
   late TabController _tabController;
-  List<String> _statusFilters = [
+
+  // Filter constants
+  static const List<String> _statusFilters = [
     'Semua',
     'Menunggu',
     'Diproses',
     'Disetujui',
     'Ditolak',
   ];
+
+  // Collection path constant
+  static const String _applicationsCollectionPath = 'applications';
+
+  // UI constants
+  static const double _spacing = 16.0;
+  static const double _smallSpacing = 12.0;
+  static const double _tinySpacing = 8.0;
+  static const double _borderRadius = 16.0;
+  static const double _borderWidth = 2.0;
+  static const double _iconSize = 24.0;
+  static const double _smallIconSize = 18.0;
+  static const double _microIconSize = 16.0;
+  static const double _cardPadding = 20.0;
 
   @override
   void initState() {
@@ -43,6 +59,7 @@ class _UserApplicationsPageState extends State<UserApplicationsPage>
     super.dispose();
   }
 
+  /// Menginisialisasi data pengajuan
   Future<void> _initializeApplications() async {
     setState(() {
       _isLoading = true;
@@ -58,94 +75,89 @@ class _UserApplicationsPageState extends State<UserApplicationsPage>
         throw Exception('User not authenticated');
       }
     } catch (e) {
-      print('Error initializing applications: $e');
-      setState(() {
-        _errorMessage = 'Gagal memuat data pengajuan';
-      });
+      debugPrint('Error initializing applications: $e');
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Gagal memuat data pengajuan';
+        });
+      }
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
-  // ✅ Simplified stream setup without fallback logic
+  /// Mengatur stream untuk data pengajuan
   void _setupApplicationsStream() {
     try {
       _applicationsStream =
           FirebaseFirestore.instance
-              .collection('applications')
+              .collection(_applicationsCollectionPath)
               .where('userId', isEqualTo: _currentUser!.uid)
               .snapshots();
     } catch (e) {
-      print('❌ Applications stream setup failed: $e');
+      debugPrint('Applications stream setup failed: $e');
       _applicationsStream = null;
     }
   }
 
+  /// Menyegarkan data pengajuan
   Future<void> _refreshApplications() async {
     await _initializeApplications();
   }
 
-  // ✅ Application status helpers
+  /// Mendapatkan nama tampilan status pengajuan
   String _getApplicationStatusDisplayName(String status) {
-    switch (status.toLowerCase()) {
-      case 'disetujui':
-      case 'approved':
-        return 'Disetujui';
-      case 'ditolak':
-      case 'rejected':
-        return 'Ditolak';
-      case 'diproses':
-      case 'reviewed':
-        return 'Diproses';
-      case 'baru':
-      case 'pending':
-        return 'Menunggu Review';
-      default:
-        return status;
+    final lowerStatus = status.toLowerCase();
+    if (['disetujui', 'approved'].contains(lowerStatus)) {
+      return 'Disetujui';
+    } else if (['ditolak', 'rejected'].contains(lowerStatus)) {
+      return 'Ditolak';
+    } else if (['diproses', 'reviewed'].contains(lowerStatus)) {
+      return 'Diproses';
+    } else if (['baru', 'pending'].contains(lowerStatus)) {
+      return 'Menunggu Review';
+    } else {
+      return status;
     }
   }
 
+  /// Mendapatkan warna untuk status pengajuan
   Color _getApplicationStatusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'disetujui':
-      case 'approved':
-        return Colors.green;
-      case 'ditolak':
-      case 'rejected':
-        return Colors.red;
-      case 'diproses':
-      case 'reviewed':
-        return Colors.blue;
-      case 'baru':
-      case 'pending':
-        return Colors.orange;
-      default:
-        return Colors.grey;
+    final lowerStatus = status.toLowerCase();
+    if (['disetujui', 'approved'].contains(lowerStatus)) {
+      return Colors.green;
+    } else if (['ditolak', 'rejected'].contains(lowerStatus)) {
+      return Colors.red;
+    } else if (['diproses', 'reviewed'].contains(lowerStatus)) {
+      return Colors.blue;
+    } else if (['baru', 'pending'].contains(lowerStatus)) {
+      return Colors.orange;
+    } else {
+      return Colors.grey;
     }
   }
 
+  /// Mendapatkan ikon untuk status pengajuan
   IconData _getApplicationStatusIcon(String status) {
-    switch (status.toLowerCase()) {
-      case 'disetujui':
-      case 'approved':
-        return Icons.check_circle_rounded;
-      case 'ditolak':
-      case 'rejected':
-        return Icons.cancel_rounded;
-      case 'diproses':
-      case 'reviewed':
-        return Icons.visibility_rounded;
-      case 'baru':
-      case 'pending':
-        return Icons.schedule_rounded;
-      default:
-        return Icons.help_outline_rounded;
+    final lowerStatus = status.toLowerCase();
+    if (['disetujui', 'approved'].contains(lowerStatus)) {
+      return Icons.check_circle_rounded;
+    } else if (['ditolak', 'rejected'].contains(lowerStatus)) {
+      return Icons.cancel_rounded;
+    } else if (['diproses', 'reviewed'].contains(lowerStatus)) {
+      return Icons.visibility_rounded;
+    } else if (['baru', 'pending'].contains(lowerStatus)) {
+      return Icons.schedule_rounded;
+    } else {
+      return Icons.help_outline_rounded;
     }
   }
 
-  // ✅ Filter applications by status
+  /// Memfilter pengajuan berdasarkan status
   List<QueryDocumentSnapshot> _filterApplicationsByStatus(
     List<QueryDocumentSnapshot> applications,
     String filter,
@@ -171,6 +183,7 @@ class _UserApplicationsPageState extends State<UserApplicationsPage>
     }).toList();
   }
 
+  /// Memformat tanggal ke format Indonesia singkat
   String _formatDate(DateTime date) {
     final months = [
       'Jan',
@@ -189,6 +202,7 @@ class _UserApplicationsPageState extends State<UserApplicationsPage>
     return '${date.day} ${months[date.month - 1]} ${date.year}';
   }
 
+  /// Memformat tanggal relatif
   String _formatRelativeDate(DateTime date) {
     final now = DateTime.now();
     final difference = now.difference(date);
@@ -207,146 +221,78 @@ class _UserApplicationsPageState extends State<UserApplicationsPage>
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text(
-            "Status Pengajuan",
-            style: TextStyle(color: Colors.white),
-          ),
-          backgroundColor: Colors.blue.shade700,
-          centerTitle: true,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
-            onPressed: () => context.go(RouteNames.userProfile),
-            tooltip: 'Kembali ke Profil',
-          ),
-        ),
-        body: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Colors.blue.shade50, Colors.white],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ),
-          ),
-          child: const Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                CircularProgressIndicator(),
-                SizedBox(height: 16),
-                Text('Memuat pengajuan...'),
-              ],
-            ),
-          ),
-        ),
-      );
+      return _buildLoadingState();
     }
 
     if (_errorMessage != null) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text(
-            "Status Pengajuan",
-            style: TextStyle(color: Colors.white),
-          ),
-          backgroundColor: Colors.blue.shade700,
-          centerTitle: true,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
-            onPressed: () => context.go(RouteNames.userProfile),
-            tooltip: 'Kembali ke Profil',
-          ),
-        ),
-        body: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Colors.blue.shade50, Colors.white],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ),
-          ),
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.error_outline, size: 64, color: Colors.red.shade400),
-                const SizedBox(height: 16),
-                Text(
-                  _errorMessage!,
-                  style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton.icon(
-                  onPressed: _refreshApplications,
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Coba Lagi'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue.shade700,
-                    foregroundColor: Colors.white,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
+      return _buildErrorState();
     }
 
+    return _buildMainContent();
+  }
+
+  /// Membangun tampilan loading
+  Widget _buildLoadingState() {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          "Status Pengajuan",
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontFamily: 'Poppins',
+      appBar: _buildSimpleAppBar(),
+      body: Container(
+        decoration: _buildBackgroundGradient(),
+        child: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: _spacing),
+              Text('Memuat pengajuan...'),
+            ],
           ),
-        ),
-        backgroundColor: Colors.blue.shade700,
-        centerTitle: true,
-        elevation: 0,
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Colors.blue.shade700, Colors.blue.shade900],
-            ),
-          ),
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => context.go(RouteNames.userProfile),
-          tooltip: 'Kembali ke Profil',
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: _refreshApplications,
-            tooltip: 'Refresh Data',
-          ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: _statusFilters.map((filter) => Tab(text: filter)).toList(),
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          indicatorColor: Colors.white,
-          isScrollable: true,
         ),
       ),
+    );
+  }
+
+  /// Membangun tampilan error
+  Widget _buildErrorState() {
+    return Scaffold(
+      appBar: _buildSimpleAppBar(),
+      body: Container(
+        decoration: _buildBackgroundGradient(),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 64, color: Colors.red.shade400),
+              const SizedBox(height: _spacing),
+              Text(
+                _errorMessage!,
+                style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: _spacing),
+              ElevatedButton.icon(
+                onPressed: _refreshApplications,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Coba Lagi'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue.shade700,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Membangun konten utama
+  Widget _buildMainContent() {
+    return Scaffold(
+      appBar: _buildAppBarWithTabs(),
       body: Container(
         width: double.infinity,
         height: double.infinity,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Colors.blue.shade50, Colors.white],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
+        decoration: _buildBackgroundGradient(),
         child: TabBarView(
           controller: _tabController,
           children:
@@ -361,144 +307,104 @@ class _UserApplicationsPageState extends State<UserApplicationsPage>
     );
   }
 
+  /// Membangun AppBar sederhana
+  PreferredSizeWidget _buildSimpleAppBar() {
+    return AppBar(
+      title: const Text(
+        "Status Pengajuan",
+        style: TextStyle(color: Colors.white),
+      ),
+      backgroundColor: Colors.blue.shade700,
+      centerTitle: true,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back, color: Colors.white),
+        onPressed: () => context.go(RouteNames.userProfile),
+        tooltip: 'Kembali ke Profil',
+      ),
+    );
+  }
+
+  /// Membangun AppBar dengan tabs
+  PreferredSizeWidget _buildAppBarWithTabs() {
+    return AppBar(
+      title: const Text(
+        "Status Pengajuan",
+        style: TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+          fontFamily: 'Poppins',
+        ),
+      ),
+      backgroundColor: Colors.blue.shade700,
+      centerTitle: true,
+      elevation: 0,
+      flexibleSpace: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Colors.blue.shade700, Colors.blue.shade900],
+          ),
+        ),
+      ),
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back, color: Colors.white),
+        onPressed: () => context.go(RouteNames.userProfile),
+        tooltip: 'Kembali ke Profil',
+      ),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.refresh, color: Colors.white),
+          onPressed: _refreshApplications,
+          tooltip: 'Refresh Data',
+        ),
+      ],
+      bottom: TabBar(
+        controller: _tabController,
+        tabs: _statusFilters.map((filter) => Tab(text: filter)).toList(),
+        labelColor: Colors.white,
+        unselectedLabelColor: Colors.white70,
+        indicatorColor: Colors.white,
+        isScrollable: true,
+      ),
+    );
+  }
+
+  /// Membangun gradient background
+  BoxDecoration _buildBackgroundGradient() {
+    return BoxDecoration(
+      gradient: LinearGradient(
+        colors: [Colors.blue.shade50, Colors.white],
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+      ),
+    );
+  }
+
+  /// Membangun daftar pengajuan
   Widget _buildApplicationsList(String statusFilter) {
     if (_applicationsStream == null) {
-      return Container(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.error_outline, size: 64, color: Colors.red.shade400),
-            const SizedBox(height: 16),
-            Text(
-              'Stream tidak tersedia',
-              style: TextStyle(
-                color: Colors.red.shade600,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 12),
-            ElevatedButton.icon(
-              onPressed: _refreshApplications,
-              icon: const Icon(Icons.refresh, size: 16),
-              label: const Text('Coba Lagi'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red.shade600,
-                foregroundColor: Colors.white,
-              ),
-            ),
-          ],
-        ),
-      );
+      return _buildStreamErrorView();
     }
 
     return StreamBuilder<QuerySnapshot>(
       stream: _applicationsStream,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                CircularProgressIndicator(),
-                SizedBox(height: 16),
-                Text('Memuat pengajuan...'),
-              ],
-            ),
-          );
+          return _buildListLoadingView();
         }
 
         if (snapshot.hasError) {
-          return Container(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.error_outline, size: 64, color: Colors.red.shade400),
-                const SizedBox(height: 16),
-                Text(
-                  'Gagal memuat pengajuan',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.red.shade600,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  snapshot.error.toString().length > 100
-                      ? '${snapshot.error.toString().substring(0, 100)}...'
-                      : snapshot.error.toString(),
-                  style: TextStyle(fontSize: 12, color: Colors.red.shade500),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton.icon(
-                  onPressed: _refreshApplications,
-                  icon: const Icon(Icons.refresh, size: 16),
-                  label: const Text('Coba Lagi'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red.shade600,
-                    foregroundColor: Colors.white,
-                  ),
-                ),
-              ],
-            ),
-          );
+          return _buildListErrorView(snapshot.error.toString());
         }
 
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return Container(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.assignment_outlined,
-                  size: 64,
-                  color: Colors.grey.shade400,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Belum ada pengajuan program',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey.shade600,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Silakan ajukan program bantuan terlebih dahulu',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-          );
+          return _buildEmptyListView();
         }
 
-        // ✅ Process and filter applications with client-side sorting
-        var applications = snapshot.data!.docs.toList();
-
-        // Sort by submission date (newest first)
-        applications.sort((a, b) {
-          final aData = a.data() as Map<String, dynamic>;
-          final bData = b.data() as Map<String, dynamic>;
-
-          final aDate =
-              aData['submissionDate'] ?? aData['createdAt'] ?? Timestamp.now();
-          final bDate =
-              bData['submissionDate'] ?? bData['createdAt'] ?? Timestamp.now();
-
-          final aDateTime =
-              aDate is Timestamp ? aDate.toDate() : DateTime.now();
-          final bDateTime =
-              bDate is Timestamp ? bDate.toDate() : DateTime.now();
-
-          return bDateTime.compareTo(aDateTime);
-        });
+        // Process applications
+        final applications = snapshot.data!.docs.toList();
+        _sortApplicationsByDate(applications);
 
         // Filter by status
         final filteredApplications = _filterApplicationsByStatus(
@@ -507,38 +413,11 @@ class _UserApplicationsPageState extends State<UserApplicationsPage>
         );
 
         if (filteredApplications.isEmpty) {
-          return Container(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.filter_list_off,
-                  size: 64,
-                  color: Colors.grey.shade400,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Tidak ada pengajuan dengan status "$statusFilter"',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey.shade600,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Coba pilih filter status lain',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
-                ),
-              ],
-            ),
-          );
+          return _buildEmptyFilterView(statusFilter);
         }
 
         return ListView.builder(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(_spacing),
           itemCount: filteredApplications.length,
           itemBuilder: (context, index) {
             final applicationDoc = filteredApplications[index];
@@ -552,267 +431,488 @@ class _UserApplicationsPageState extends State<UserApplicationsPage>
     );
   }
 
-  Widget _buildApplicationCard(Map<String, dynamic> application) {
-    final status = application['status'] ?? 'Baru';
-    final submissionDate =
-        application['submissionDate']?.toDate() ??
-        application['createdAt']?.toDate();
+  /// Menyortir pengajuan berdasarkan tanggal
+  void _sortApplicationsByDate(List<QueryDocumentSnapshot> applications) {
+    applications.sort((a, b) {
+      final aData = a.data() as Map<String, dynamic>;
+      final bData = b.data() as Map<String, dynamic>;
+
+      final aDate =
+          aData['submissionDate'] ?? aData['createdAt'] ?? Timestamp.now();
+      final bDate =
+          bData['submissionDate'] ?? bData['createdAt'] ?? Timestamp.now();
+
+      final aDateTime = aDate is Timestamp ? aDate.toDate() : DateTime.now();
+      final bDateTime = bDate is Timestamp ? bDate.toDate() : DateTime.now();
+
+      return bDateTime.compareTo(aDateTime); // Newest first
+    });
+  }
+
+  /// Membangun tampilan error untuk stream
+  Widget _buildStreamErrorView() {
+    return Container(
+      padding: const EdgeInsets.all(_cardPadding),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.error_outline, size: 64, color: Colors.red.shade400),
+          const SizedBox(height: _spacing),
+          Text(
+            'Stream tidak tersedia',
+            style: TextStyle(
+              color: Colors.red.shade600,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: _smallSpacing),
+          ElevatedButton.icon(
+            onPressed: _refreshApplications,
+            icon: const Icon(Icons.refresh, size: 16),
+            label: const Text('Coba Lagi'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade600,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Membangun tampilan loading untuk daftar
+  Widget _buildListLoadingView() {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(),
+          SizedBox(height: _spacing),
+          Text('Memuat pengajuan...'),
+        ],
+      ),
+    );
+  }
+
+  /// Membangun tampilan error untuk daftar
+  Widget _buildListErrorView(String error) {
+    final errorMessage =
+        error.length > 100 ? '${error.substring(0, 100)}...' : error;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(_cardPadding),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.error_outline, size: 64, color: Colors.red.shade400),
+          const SizedBox(height: _spacing),
+          Text(
+            'Gagal memuat pengajuan',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.red.shade600,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: _tinySpacing),
+          Text(
+            errorMessage,
+            style: TextStyle(fontSize: 12, color: Colors.red.shade500),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: _spacing),
+          ElevatedButton.icon(
+            onPressed: _refreshApplications,
+            icon: const Icon(Icons.refresh, size: 16),
+            label: const Text('Coba Lagi'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade600,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Membangun tampilan kosong untuk daftar
+  Widget _buildEmptyListView() {
+    return Container(
+      padding: const EdgeInsets.all(_cardPadding),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.assignment_outlined,
+            size: 64,
+            color: Colors.grey.shade400,
+          ),
+          const SizedBox(height: _spacing),
+          Text(
+            'Belum ada pengajuan program',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey.shade600,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: _tinySpacing),
+          Text(
+            'Silakan ajukan program bantuan terlebih dahulu',
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Membangun tampilan kosong untuk filter
+  Widget _buildEmptyFilterView(String filter) {
+    return Container(
+      padding: const EdgeInsets.all(_cardPadding),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.filter_list_off, size: 64, color: Colors.grey.shade400),
+          const SizedBox(height: _spacing),
+          Text(
+            'Tidak ada pengajuan dengan status "$filter"',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey.shade600,
+              fontWeight: FontWeight.bold,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: _tinySpacing),
+          Text(
+            'Coba pilih filter status lain',
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Membangun kartu pengajuan
+  Widget _buildApplicationCard(Map<String, dynamic> application) {
+    final status = application['status'] ?? 'Baru';
+    final submissionDate = _getDateFromField(application, [
+      'submissionDate',
+      'createdAt',
+    ]);
+    final reviewDate = _getDateFromField(application, ['reviewDate']);
+    final statusColor = _getApplicationStatusColor(status);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: _spacing),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            Colors.white,
-            _getApplicationStatusColor(status).withOpacity(0.05),
-          ],
+          colors: [Colors.white, statusColor.withOpacity(0.05)],
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(_borderRadius),
         border: Border.all(
-          color: _getApplicationStatusColor(status).withOpacity(0.3),
-          width: 2,
+          color: statusColor.withOpacity(0.3),
+          width: _borderWidth,
         ),
         boxShadow: [
           BoxShadow(
-            color: _getApplicationStatusColor(status).withOpacity(0.1),
+            color: statusColor.withOpacity(0.1),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(_cardPadding),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ✅ Header with status
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: _getApplicationStatusColor(status).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    _getApplicationStatusIcon(status),
-                    color: _getApplicationStatusColor(status),
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        application['programName'] ??
-                            application['programTitle'] ??
-                            'Program Bantuan',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Kategori: ${application['category'] ?? 'Tidak diketahui'}',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _getApplicationStatusColor(status),
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  child: Text(
-                    _getApplicationStatusDisplayName(status),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
+            // Header with status
+            _buildCardHeader(application, status, statusColor),
+            const SizedBox(height: _cardPadding),
 
-            // ✅ Timeline information
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade50,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.calendar_today_rounded,
-                        size: 18,
-                        color: Colors.grey.shade600,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        submissionDate != null
-                            ? 'Diajukan: ${_formatDate(submissionDate)}'
-                            : 'Tanggal tidak tersedia',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey.shade700,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const Spacer(),
-                      Text(
-                        submissionDate != null
-                            ? _formatRelativeDate(submissionDate)
-                            : '',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade500,
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (application['reviewDate'] != null) ...[
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.schedule_rounded,
-                          size: 18,
-                          color: Colors.grey.shade600,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Direview: ${_formatDate(application['reviewDate'].toDate())}',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey.shade700,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ],
-              ),
-            ),
+            // Timeline information
+            _buildTimelineInfo(submissionDate, reviewDate),
 
-            // ✅ Application ID
+            // Application ID
             if (application['id'] != null) ...[
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Icon(
-                    Icons.tag_rounded,
-                    size: 16,
-                    color: Colors.grey.shade500,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'ID Pengajuan: ${application['id'].toString().substring(0, 12)}...',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade600,
-                      fontFamily: 'monospace',
-                    ),
-                  ),
-                ],
-              ),
+              const SizedBox(height: _smallSpacing),
+              _buildApplicationId(application['id']),
             ],
 
-            // ✅ Admin notes
-            if (application['notes'] != null &&
-                application['notes'].toString().isNotEmpty) ...[
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.blue.shade200),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.note_alt_rounded,
-                          size: 18,
-                          color: Colors.blue.shade700,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Catatan Admin:',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blue.shade700,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      application['notes'],
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.blue.shade800,
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            // Admin notes
+            if (_hasNotes(application)) ...[
+              const SizedBox(height: _spacing),
+              _buildAdminNotes(application['notes']),
             ],
 
-            // ✅ Program details
-            if (application['programDetails'] != null) ...[
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.business_rounded,
-                      size: 16,
-                      color: Colors.grey.shade600,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Penyelenggara: ${application['programDetails']['organizer'] ?? 'N/A'}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            // Program details
+            if (_hasProgramDetails(application)) ...[
+              const SizedBox(height: _spacing),
+              _buildProgramOrganizer(application['programDetails']),
             ],
           ],
         ),
       ),
     );
   }
+
+  /// Mendapatkan tanggal dari field yang tersedia
+  DateTime? _getDateFromField(
+    Map<String, dynamic> data,
+    List<String> possibleFields,
+  ) {
+    for (final field in possibleFields) {
+      final value = data[field];
+      if (value != null && value is Timestamp) {
+        return value.toDate();
+      }
+    }
+    return null;
+  }
+
+  /// Membangun header kartu
+  Widget _buildCardHeader(
+    Map<String, dynamic> application,
+    String status,
+    Color statusColor,
+  ) {
+    final programName =
+        application['programName'] ??
+        application['programTitle'] ??
+        'Program Bantuan';
+    final category = application['category'] ?? 'Tidak diketahui';
+
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(_smallSpacing),
+          decoration: BoxDecoration(
+            color: statusColor.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(_smallSpacing),
+          ),
+          child: Icon(
+            _getApplicationStatusIcon(status),
+            color: statusColor,
+            size: _iconSize,
+          ),
+        ),
+        const SizedBox(width: _spacing),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                programName,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Kategori: $category',
+                style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+              ),
+            ],
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: _spacing,
+            vertical: _tinySpacing,
+          ),
+          decoration: BoxDecoration(
+            color: statusColor,
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Text(
+            _getApplicationStatusDisplayName(status),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Membangun informasi timeline
+  Widget _buildTimelineInfo(DateTime? submissionDate, DateTime? reviewDate) {
+    return Container(
+      padding: const EdgeInsets.all(_smallSpacing),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(_tinySpacing),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.calendar_today_rounded,
+                size: _smallIconSize,
+                color: Colors.grey.shade600,
+              ),
+              const SizedBox(width: _tinySpacing),
+              Text(
+                submissionDate != null
+                    ? 'Diajukan: ${_formatDate(submissionDate)}'
+                    : 'Tanggal tidak tersedia',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey.shade700,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const Spacer(),
+              if (submissionDate != null)
+                Text(
+                  _formatRelativeDate(submissionDate),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade500,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+            ],
+          ),
+          if (reviewDate != null) ...[
+            const SizedBox(height: _tinySpacing),
+            Row(
+              children: [
+                Icon(
+                  Icons.schedule_rounded,
+                  size: _smallIconSize,
+                  color: Colors.grey.shade600,
+                ),
+                const SizedBox(width: _tinySpacing),
+                Text(
+                  'Direview: ${_formatDate(reviewDate)}',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey.shade700,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Membangun ID pengajuan
+  Widget _buildApplicationId(String id) {
+    return Row(
+      children: [
+        Icon(
+          Icons.tag_rounded,
+          size: _microIconSize,
+          color: Colors.grey.shade500,
+        ),
+        const SizedBox(width: _tinySpacing),
+        Text(
+          'ID Pengajuan: ${id.substring(0, min(12, id.length))}...',
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey.shade600,
+            fontFamily: 'monospace',
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Membangun catatan admin
+  Widget _buildAdminNotes(String notes) {
+    return Container(
+      padding: const EdgeInsets.all(_spacing),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(_smallSpacing),
+        border: Border.all(color: Colors.blue.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.note_alt_rounded,
+                size: _smallIconSize,
+                color: Colors.blue.shade700,
+              ),
+              const SizedBox(width: _tinySpacing),
+              Text(
+                'Catatan Admin:',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue.shade700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: _tinySpacing),
+          Text(
+            notes,
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.blue.shade800,
+              height: 1.4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Membangun organisasi program
+  Widget _buildProgramOrganizer(Map<String, dynamic> programDetails) {
+    final organizer = programDetails['organizer'] ?? 'N/A';
+
+    return Container(
+      padding: const EdgeInsets.all(_smallSpacing),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(_tinySpacing),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.business_rounded,
+            size: _microIconSize,
+            color: Colors.grey.shade600,
+          ),
+          const SizedBox(width: _tinySpacing),
+          Text(
+            'Penyelenggara: $organizer',
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Memeriksa apakah pengajuan memiliki catatan
+  bool _hasNotes(Map<String, dynamic> application) {
+    return application['notes'] != null &&
+        application['notes'].toString().isNotEmpty;
+  }
+
+  /// Memeriksa apakah pengajuan memiliki detail program
+  bool _hasProgramDetails(Map<String, dynamic> application) {
+    return application['programDetails'] is Map;
+  }
+
+  /// Mengembalikan nilai minimum dari dua angka
+  int min(int a, int b) => a < b ? a : b;
 }
